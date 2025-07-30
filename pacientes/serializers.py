@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Consulta, Paciente, Procedimiento, Registro
+from .models import Consulta, Paciente, Procedimiento, Registro, CIE10Diagnosis
 from datetime import date
 from django.utils.timezone import localtime
 
@@ -101,3 +101,10 @@ class MedicamentoFrecuenteSerializer(serializers.ModelSerializer):
     class Meta:
         model = MedicamentoFrecuente
         fields = ['id', 'nombre', 'posologia']
+
+
+
+class CIE10DiagnosisSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CIE10Diagnosis
+        fields = ['id', 'codigo', 'descripcion']

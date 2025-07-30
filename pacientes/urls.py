@@ -11,7 +11,8 @@ from .views import (
     EstadisticasDiariasView,
     ProcedimientoViewSet,
     RegistroViewSet,
-    MedicamentoFrecuenteViewSet
+    MedicamentoFrecuenteViewSet,
+    CIE10DiagnosisListAPIView
 )
 
 
@@ -30,6 +31,7 @@ urlpatterns = [
     path('consultas/<int:consulta_id>/', ConsultaRetrieveView.as_view(), name='ver-consulta'),
     path('api/consultas/paciente/<int:paciente_id>/', HistorialPorPaciente.as_view()),
     path('estadisticas/diarias/', EstadisticasDiariasView.as_view(), name='estadisticas-diarias'),
+    path('diagnosticos/', CIE10DiagnosisListAPIView.as_view(), name='diagnosticos-cie10'),
     
     path('', include(router.urls)),
     

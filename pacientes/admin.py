@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Paciente, Consulta, Registro, MedicamentoFrecuente
+from .models import Paciente, Consulta, Registro, MedicamentoFrecuente, CIE10Diagnosis
 
 # --------------------------
 # Admin de Paciente
@@ -32,3 +32,10 @@ class RegistroAdmin(admin.ModelAdmin):
 class MedicamentoFrecuenteAdmin(admin.ModelAdmin):
     list_display = ('nombre', 'posologia')
     search_fields = ('nombre',)
+
+
+
+@admin.register(CIE10Diagnosis)
+class CIE10DiagnosisAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'descripcion')
+    search_fields = ('codigo', 'descripcion')

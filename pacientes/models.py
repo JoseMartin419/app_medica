@@ -92,3 +92,11 @@ class MedicamentoFrecuente(models.Model):
 
     def __str__(self):
         return self.nombre
+
+
+class CIE10Diagnosis(models.Model):
+    codigo = models.CharField(max_length=10, unique=True)
+    descripcion = models.TextField()
+
+    def __str__(self):
+        return f"{self.codigo} - {self.descripcion}"

@@ -3,8 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from .models import Paciente, Consulta, Procedimiento, Registro
-from .serializers import PacienteSerializer, ConsultaSerializer, ProcedimientoSerializer, RegistroSerializer
+from .models import Paciente, Consulta, Procedimiento, Registro, CIE10Diagnosis
+from .serializers import PacienteSerializer, ConsultaSerializer, ProcedimientoSerializer, RegistroSerializer, CIE10DiagnosisSerializer
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -20,6 +20,9 @@ from django.utils import timezone
 from django.db.models import Count
 from datetime import date, timedelta
 from rest_framework import viewsets
+from rest_framework import generics
+
+
 
 class ProcedimientoViewSet(viewsets.ModelViewSet):
     queryset = Procedimiento.objects.all()
@@ -313,3 +316,8 @@ def generar_receta_pdf(request, consulta_id):
     return response
 
 
+
+
+class CIE10DiagnosisListAPIView(generics.ListAPIView):
+    queryset = CIE10Diagnosis.objects.all().order_by('codigo')
+    serializer_class = CIE10DiagnosisSerializer
