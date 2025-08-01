@@ -85,7 +85,9 @@ class PacienteListCreateView(ListCreateAPIView):
     queryset = Paciente.objects.all()
     serializer_class = PacienteSerializer
 
-class ConsultaCreateView(CreateAPIView):
+from rest_framework import generics
+
+class ConsultaListCreateView(generics.ListCreateAPIView):
     queryset = Consulta.objects.all()
     serializer_class = ConsultaSerializer
 
@@ -318,6 +320,13 @@ def generar_receta_pdf(request, consulta_id):
 
 
 
+from rest_framework import generics
+from rest_framework.filters import SearchFilter
+from .models import CIE10Diagnosis
+from .serializers import CIE10DiagnosisSerializer
+
 class CIE10DiagnosisListAPIView(generics.ListAPIView):
-    queryset = CIE10Diagnosis.objects.all().order_by('codigo')
+    queryset = CIE10Diagnosis.objects.all()
     serializer_class = CIE10DiagnosisSerializer
+    filter_backends = [SearchFilter]
+    search_fields = ['codigo', 'descripcion']  # permite buscar por ambos

@@ -1,10 +1,8 @@
-
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from .views import (
     PacienteListCreateView,
-    ConsultaCreateView,
     HistorialPorPaciente,
     ConsultaRetrieveView,
     PacienteRetrieveView,
@@ -12,31 +10,37 @@ from .views import (
     ProcedimientoViewSet,
     RegistroViewSet,
     MedicamentoFrecuenteViewSet,
-    CIE10DiagnosisListAPIView
+    CIE10DiagnosisListAPIView,
+    ConsultaListCreateView,
+    generar_receta_pdf,
 )
 
-
-
+# Routers para ViewSets
 router = DefaultRouter()
 router.register(r'procedimientos', ProcedimientoViewSet)
 router.register(r'registros', RegistroViewSet)
 router.register(r'medicamentos-frecuentes', MedicamentoFrecuenteViewSet)
 
-
+# URL patterns de vistas basadas en clases y funciones
 urlpatterns = [
-    path('', PacienteListCreateView.as_view(), name='lista-crea-pacientes'),
-    path('<int:pk>/', PacienteRetrieveView.as_view(), name='detalle-paciente'),
-    path('consultas/', ConsultaCreateView.as_view(), name='crear-consulta'),
-    path('historial/<int:paciente_id>/', HistorialPorPaciente.as_view(), name='historial_por_paciente'),    
+    # Pacientes
+    path('pacientes/', PacienteListCreateView.as_view(), name='lista-crea-pacientes'),
+    path('pacientes/<int:pk>/', PacienteRetrieveView.as_view(), name='detalle-paciente'),
+
+    # Consultas
+    path('consultas/', ConsultaListCreateView.as_view(), name='lista-crea-consultas'),
     path('consultas/<int:consulta_id>/', ConsultaRetrieveView.as_view(), name='ver-consulta'),
-    path('api/consultas/paciente/<int:paciente_id>/', HistorialPorPaciente.as_view()),
-    path('estadisticas/diarias/', EstadisticasDiariasView.as_view(), name='estadisticas-diarias'),
+    path('consultas/paciente/<int:paciente_id>/', HistorialPorPaciente.as_view(), name='historial_por_paciente'),
+
+    # Diagnósticos CIE10
     path('diagnosticos/', CIE10DiagnosisListAPIView.as_view(), name='diagnosticos-cie10'),
-    
+
+    # Recetas PDF
+    path('recetas/<int:consulta_id>/', generar_receta_pdf, name='generar_receta_pdf'),
+
+    # Estadísticas
+    path('estadisticas/diarias/', EstadisticasDiariasView.as_view(), name='estadisticas-diarias'),
+
+    # Endpoints con routers (ViewSets)
     path('', include(router.urls)),
-    
-    ] 
-
-
-
-
+]
