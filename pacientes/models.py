@@ -1,5 +1,6 @@
 from django.db import models
 from datetime import date
+from django.utils import timezone
 
 class Paciente(models.Model):
     nombre = models.CharField(max_length=255)
@@ -41,6 +42,8 @@ class Consulta(models.Model):
     diagnostico = models.TextField(blank=True, null=True)
     tratamiento = models.JSONField(blank=True, null=True)
     medico = models.CharField(max_length=100, blank=True, null=True)
+    notas = models.TextField(blank=True, null=True)   # ✅ nuevo campo
+
     fecha = models.DateTimeField(auto_now_add=True)
     
     def save(self, *args, **kwargs):
@@ -67,7 +70,7 @@ class Procedimiento(models.Model):
         return f"{self.fecha} - {self.tipo} ({self.cantidad})"
 
 class Registro(models.Model):
-    fecha = models.DateField(auto_now_add=True)
+    fecha = models.DateField(default=timezone.now)
     procedimientos = models.ManyToManyField(Procedimiento)
     total = models.DecimalField(max_digits=10, decimal_places=2)
     metodo_pago = models.CharField(max_length=50, choices=[

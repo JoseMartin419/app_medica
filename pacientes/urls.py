@@ -12,7 +12,10 @@ from .views import (
     MedicamentoFrecuenteViewSet,
     CIE10DiagnosisListAPIView,
     ConsultaListCreateView,
+    ConsultasEstadisticasView,
+    pacientes_top_consultas,
     generar_receta_pdf,
+    pacientes_estadisticas_diarias,
 )
 
 # Routers para ViewSets
@@ -39,8 +42,15 @@ urlpatterns = [
     path('recetas/<int:consulta_id>/', generar_receta_pdf, name='generar_receta_pdf'),
 
     # Estadísticas
-    path('estadisticas/diarias/', EstadisticasDiariasView.as_view(), name='estadisticas-diarias'),
+    # path('estadisticas/diarias/', EstadisticasDiariasView.as_view(), name='estadisticas-diarias'),
+    path("pacientes/top-consultas/", pacientes_top_consultas, name="pacientes-top-consultas"),
+    path("pacientes/estadisticas/diarias/", pacientes_estadisticas_diarias, name="pacientes-estadisticas-diarias"),
+    path("consultas/estadisticas/", ConsultasEstadisticasView.as_view(), name="consultas-estadisticas"),
+
+
 
     # Endpoints con routers (ViewSets)
     path('', include(router.urls)),
 ]
+
+

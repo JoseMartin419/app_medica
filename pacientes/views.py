@@ -21,8 +21,7 @@ from django.db.models import Count
 from datetime import date, timedelta
 from rest_framework import viewsets
 from rest_framework import generics
-
-
+from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncYear
 
 class ProcedimientoViewSet(viewsets.ModelViewSet):
     queryset = Procedimiento.objects.all()
@@ -335,3 +334,144 @@ class CIE10DiagnosisListAPIView(generics.ListAPIView):
     serializer_class = CIE10DiagnosisSerializer
     filter_backends = [SearchFilter]
     search_fields = ['codigo', 'descripcion']  # permite buscar por ambos
+
+
+from django.db.models import Count
+from django.db.models.functions import TruncDay, TruncWeek, TruncMonth, TruncYear
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Consulta
+
+
+class ConsultasEstadisticasView(APIView):
+    def get(self, request):
+        try:
+            # --- Consultas por día ---
+            consultas_por_dia = (
+                Consulta.objects.annotate(fecha=TruncDay("fecha"))
+                .values("fecha")
+                .annotate(consultas=Count("id"))
+                .order_by("fecha")
+            )
+            consultas_por_dia = [
+                {
+                    "fecha": c["fecha"].strftime("%d/%m/%Y") if c["fecha"] else None,
+                    "consultas": c["consultas"],
+                }
+                for c in consultas_por_dia
+            ]
+
+            # --- Consultas por semana ---
+            consultas_por_semana = (
+                Consulta.objects.annotate(semana=TruncWeek("fecha"))
+                .values("semana")
+                .annotate(consultas=Count("id"))
+                .order_by("semana")
+            )
+            consultas_por_semana = [
+                {
+                    "semana": f"Semana {c['semana'].isocalendar()[1]} - {c['semana'].strftime('%Y')}"
+                    if c["semana"] else None,
+                    "consultas": c["consultas"],
+                }
+                for c in consultas_por_semana
+            ]
+
+            # --- Consultas por mes ---
+            consultas_por_mes = (
+                Consulta.objects.annotate(mes=TruncMonth("fecha"))
+                .values("mes")
+                .annotate(consultas=Count("id"))
+                .order_by("mes")
+            )
+            consultas_por_mes = [
+                {
+                    "mes": c["mes"].strftime("%m/%Y") if c["mes"] else None,
+                    "consultas": c["consultas"],
+                }
+                for c in consultas_por_mes
+            ]
+
+            # --- Consultas por año ---
+            consultas_por_anio = (
+                Consulta.objects.annotate(anio=TruncYear("fecha"))
+                .values("anio")
+                .annotate(consultas=Count("id"))
+                .order_by("anio")
+            )
+            consultas_por_anio = [
+                {
+                    "anio": c["anio"].strftime("%Y") if c["anio"] else None,
+                    "consultas": c["consultas"],
+                }
+                for c in consultas_por_anio
+            ]
+
+            # --- Respuesta final ---
+            return Response(
+                {
+                    "por_dia": consultas_por_dia,
+                    "por_semana": consultas_por_semana,
+                    "por_mes": consultas_por_mes,
+                    "por_anio": consultas_por_anio,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+
+
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.db.models import Count
+from .models import Paciente
+
+@api_view(["GET"])
+def pacientes_top_consultas(request):
+    """
+    Devuelve los pacientes con mayor número de consultas registradas.
+    """
+    pacientes = (
+        Paciente.objects.annotate(num_consultas=Count("consulta"))
+        .order_by("-num_consultas")[:10]  # top 10
+    )
+    data = [
+        {
+            "id": p.id,
+            "nombre": p.nombre,
+            "num_consultas": p.num_consultas,
+        }
+        for p in pacientes
+    ]
+    return Response(data)
+
+
+from datetime import date, timedelta
+from django.db.models import Count
+from django.db.models.functions import TruncDay
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from .models import Consulta
+
+@api_view(["GET"])
+def pacientes_estadisticas_diarias(request):
+    days = int(request.GET.get("days", 7))  # por defecto últimos 7 días
+    desde = date.today() - timedelta(days=days)
+
+    consultas = (
+        Consulta.objects.filter(fecha__date__gte=desde)
+        .annotate(dia=TruncDay("fecha"))
+        .values("dia")
+        .annotate(count=Count("id", distinct=True))
+        .order_by("dia")
+    )
+
+    data = [{"fecha": c["dia"].strftime("%Y-%m-%d"), "count": c["count"]} for c in consultas]
+    return Response(data)

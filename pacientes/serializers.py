@@ -22,6 +22,7 @@ class PacienteConConsultaSerializer(serializers.Serializer):
 # Serializer para mostrar los detalles de una consulta
 class ConsultaSerializer(serializers.ModelSerializer):
     fecha = serializers.SerializerMethodField()
+
     class Meta:
         model = Consulta
         fields = '__all__'
@@ -36,13 +37,16 @@ class ConsultaSerializer(serializers.ModelSerializer):
             'oximetria': {'required': False, 'allow_null': True},
             'tratamiento': {'required': False, 'allow_null': True},
             'antecedentes': {'required': False, 'allow_null': True},
+            'notas': {'required': False, 'allow_null': True},   # ✅ nuevo campo
         }
 
     def get_edad_paciente(self, obj):
         if obj.paciente and obj.paciente.fecha_nacimiento:
             hoy = date.today()
             nacimiento = obj.paciente.fecha_nacimiento
-            edad = hoy.year - nacimiento.year - ((hoy.month, hoy.day) < (nacimiento.month, nacimiento.day))
+            edad = hoy.year - nacimiento.year - (
+                (hoy.month, hoy.day) < (nacimiento.month, nacimiento.day)
+            )
             return edad
         return None
 
@@ -59,7 +63,6 @@ class ConsultaSerializer(serializers.ModelSerializer):
     
     def get_fecha(self, obj):
         return localtime(obj.fecha).isoformat()
-
 
 
 # Serializer clásico para listar pacientes
