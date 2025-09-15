@@ -98,20 +98,28 @@ export default function Consultas() {
       try {
         const data = await obtenerPacientes();
         setPacientes(data);
+  
         if (pacienteId) {
           const encontrado = data.find(p => p.id === parseInt(pacienteId));
+  
           if (encontrado) {
             setPacienteActual(encontrado);
-            setConsulta(prev => ({ ...prev, paciente: encontrado.id }));
+  
+            setConsulta(prev => ({
+              ...prev,
+              paciente: encontrado.id,
+              antecedentes: encontrado.antecedentes || '' // 🔹 precargar antecedentes
+            }));
           }
         }
       } catch (error) {
         console.error("Error de red al obtener pacientes:", error);
       }
     };
+  
     cargarPacientes();
   }, [pacienteId]);
-
+  
 
   useEffect(() => {
     if (medicamentoActual.nombre.length > 0) {

@@ -72,17 +72,19 @@ class EstadisticasDiariasView(APIView):
         return Response(data)
 
 
-from rest_framework import viewsets
+from rest_framework import viewsets, filters
 from .models import Alergia
 from .serializers import AlergiaSerializer
 
 class AlergiaViewSet(viewsets.ModelViewSet):
-    queryset = Alergia.objects.all()
+    queryset = Alergia.objects.all().order_by("nombre")
     serializer_class = AlergiaSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["nombre"]
 
 
 class PacienteViewSet(viewsets.ModelViewSet):
-    queryset = Paciente.objects.all()
+    queryset = Paciente.objects.all().order_by("id")
     serializer_class = PacienteSerializer
 
 
@@ -286,6 +288,10 @@ def generar_receta_pdf(request, consulta_id):
             signos.append(f"Talla: {c.talla} m")
         if c.imc:
             signos.append(f"IMC: {c.imc}")
+        # 🔹 Alergias del paciente
+        if c.paciente.alergias.exists():
+            alergias_list = ", ".join(c.paciente.alergias.values_list("nombre", flat=True))
+            signos.append(f"Alergias: {alergias_list}")
 
         y_actual = signos_y - 15
         for signo in signos:

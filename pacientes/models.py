@@ -17,6 +17,7 @@ class Paciente(models.Model):
     correo = models.EmailField(blank=True, null=True)
     tutor = models.CharField(max_length=255, blank=True, null=True)
     alergias = models.ManyToManyField("Alergia", blank=True, related_name="pacientes")
+    antecedentes = models.TextField(blank=True, null=True)  # ✅ nuevo campo
 
 
     def __str__(self):

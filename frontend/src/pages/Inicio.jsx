@@ -94,7 +94,9 @@ export default function Inicio() {
         nombre: busqueda, 
         fecha_nacimiento: '', 
         telefono: '', 
-        correo: '' 
+        correo: '' ,
+        alergias_ids: []  
+
       });
       setMostrarModal(true);
     }

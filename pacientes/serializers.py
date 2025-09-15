@@ -40,27 +40,36 @@ class PacienteSerializer(serializers.ModelSerializer):
         queryset=Alergia.objects.all(),
         many=True,
         write_only=True,
-        required=False
+        required=False,
+        source="alergias"
     )
 
     class Meta:
         model = Paciente
-        fields = '__all__'
+        fields = "__all__"  # incluye nombre, fecha_nacimiento, telefono, correo, tutor, antecedentes, alergias
 
     def create(self, validated_data):
-        alergias = validated_data.pop('alergias_ids', [])
+        # Extraer alergias si se enviaron
+        alergias = validated_data.pop("alergias", [])
         paciente = Paciente.objects.create(**validated_data)
+
         if alergias:
             paciente.alergias.set(alergias)
+
         return paciente
 
     def update(self, instance, validated_data):
-        alergias = validated_data.pop('alergias_ids', None)
+        # Extraer alergias si vienen en la actualización
+        alergias = validated_data.pop("alergias", None)
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
         instance.save()
+
         if alergias is not None:
             instance.alergias.set(alergias)
+
         return instance
 
 
