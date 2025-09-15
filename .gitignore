@@ -1,0 +1,26 @@
+# --- Python / Django ---
+__pycache__/
+*.py[cod]
+*.sqlite3
+db.sqlite3
+venv/
+*.log
+*.pot
+*.pyc
+*.pyo
+.env
+
+# --- Node / React ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp/
+.pnp.js
+.parcel-cache
+dist/
+build/
+
+# --- Sistema ---
+.DS_Store
+Thumbs.db
