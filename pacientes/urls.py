@@ -16,6 +16,7 @@ from .views import (
     pacientes_top_consultas,
     generar_receta_pdf,
     pacientes_estadisticas_diarias,
+    AlergiaViewSet,   # ✅ importado
 )
 
 # Routers para ViewSets
@@ -23,6 +24,7 @@ router = DefaultRouter()
 router.register(r'procedimientos', ProcedimientoViewSet)
 router.register(r'registros', RegistroViewSet)
 router.register(r'medicamentos-frecuentes', MedicamentoFrecuenteViewSet)
+router.register(r'alergias', AlergiaViewSet)  # ✅ nuevo
 
 # URL patterns de vistas basadas en clases y funciones
 urlpatterns = [
@@ -47,10 +49,6 @@ urlpatterns = [
     path("pacientes/estadisticas/diarias/", pacientes_estadisticas_diarias, name="pacientes-estadisticas-diarias"),
     path("consultas/estadisticas/", ConsultasEstadisticasView.as_view(), name="consultas-estadisticas"),
 
-
-
     # Endpoints con routers (ViewSets)
     path('', include(router.urls)),
 ]
-
-

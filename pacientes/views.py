@@ -71,6 +71,16 @@ class EstadisticasDiariasView(APIView):
         data = [{'fecha': str(item['fecha__date']), 'count': item['count']} for item in consultas]
         return Response(data)
 
+
+from rest_framework import viewsets
+from .models import Alergia
+from .serializers import AlergiaSerializer
+
+class AlergiaViewSet(viewsets.ModelViewSet):
+    queryset = Alergia.objects.all()
+    serializer_class = AlergiaSerializer
+
+
 class PacienteViewSet(viewsets.ModelViewSet):
     queryset = Paciente.objects.all()
     serializer_class = PacienteSerializer

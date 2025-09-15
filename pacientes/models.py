@@ -2,12 +2,22 @@ from django.db import models
 from datetime import date
 from django.utils import timezone
 
+
+class Alergia(models.Model):
+    nombre = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return self.nombre
+
+
 class Paciente(models.Model):
     nombre = models.CharField(max_length=255)
     fecha_nacimiento = models.DateField()
     telefono = models.CharField(max_length=20, blank=True, null=True)
     correo = models.EmailField(blank=True, null=True)
     tutor = models.CharField(max_length=255, blank=True, null=True)
+    alergias = models.ManyToManyField("Alergia", blank=True, related_name="pacientes")
+
 
     def __str__(self):
         return self.nombre

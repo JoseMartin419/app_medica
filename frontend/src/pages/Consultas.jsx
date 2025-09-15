@@ -843,6 +843,15 @@ export default function Consultas() {
                         <Mail size={14} className="text-gray-400" />
                         <span>{pacienteActual.correo || 'Sin correo'}</span>
                       </div>
+                      <div className="flex items-center gap-2 col-span-2 sm:col-span-3">
+                        <AlertCircle size={14} className="text-red-500" />
+                        <span>
+                          Alergias:{" "}
+                          {pacienteActual.alergias?.length > 0
+                            ? pacienteActual.alergias.map((a) => a.nombre).join(", ")
+                            : "Ninguna"}
+                        </span>
+                      </div>
                       {mostrarTutor && (
                         <div className="flex items-center gap-2">
                           <User size={14} className="text-gray-400" />

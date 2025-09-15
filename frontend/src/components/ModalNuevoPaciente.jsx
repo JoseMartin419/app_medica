@@ -1,7 +1,17 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Calendar } from 'lucide-react';
 
 export default function ModalNuevoPaciente({ datos, onChange, onClose, onSave }) {
+  const [alergiasDisponibles, setAlergiasDisponibles] = useState([]);
+
+  // 🔹 Cargar alergias desde el backend
+  useEffect(() => {
+    fetch("/api/alergias/") // ajusta la URL base si usas proxy o variable de entorno
+      .then((res) => res.json())
+      .then((data) => setAlergiasDisponibles(data))
+      .catch((err) => console.error("Error cargando alergias:", err));
+  }, []);
+
   function calcularEdadDetallada(fechaNacimiento) {
     if (!fechaNacimiento) return 'Desconocida';
     const hoy = new Date();
@@ -29,8 +39,18 @@ export default function ModalNuevoPaciente({ datos, onChange, onClose, onSave })
   }
 
   const edadTexto = calcularEdadDetallada(datos.fecha_nacimiento);
-  const edadNum = parseInt(edadTexto); // extraemos el número para validaciónn
+  const edadNum = parseInt(edadTexto);
   const esMenor = !isNaN(edadNum) && edadNum < 18;
+
+  // 🔹 Manejo de selección múltiple de alergias
+  const handleAlergiaChange = (id) => {
+    const seleccionadas = datos.alergias_ids || [];
+    if (seleccionadas.includes(id)) {
+      onChange("alergias_ids", seleccionadas.filter((a) => a !== id));
+    } else {
+      onChange("alergias_ids", [...seleccionadas, id]);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
@@ -45,6 +65,7 @@ export default function ModalNuevoPaciente({ datos, onChange, onClose, onSave })
             onChange={(e) => onChange('nombre', e.target.value)}
             className="w-full p-2 border rounded"
           />
+
           <input
             type="date"
             placeholder="Fecha de nacimiento"
@@ -53,7 +74,6 @@ export default function ModalNuevoPaciente({ datos, onChange, onClose, onSave })
             className="w-full p-2 border rounded"
           />
 
-          {/* Mostrar edad en texto */}
           {datos.fecha_nacimiento && (
             <div className="text-sm text-gray-600 flex items-center gap-2">
               <Calendar size={16} className="text-gray-400" />
@@ -61,7 +81,6 @@ export default function ModalNuevoPaciente({ datos, onChange, onClose, onSave })
             </div>
           )}
 
-          {/* Campo Tutor si es menor */}
           {esMenor && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700">Nombre del Tutor</label>
@@ -81,6 +100,7 @@ export default function ModalNuevoPaciente({ datos, onChange, onClose, onSave })
             onChange={(e) => onChange('telefono', e.target.value)}
             className="w-full p-2 border rounded"
           />
+
           <input
             type="email"
             placeholder="Correo electrónico"
@@ -88,6 +108,23 @@ export default function ModalNuevoPaciente({ datos, onChange, onClose, onSave })
             onChange={(e) => onChange('correo', e.target.value)}
             className="w-full p-2 border rounded"
           />
+
+          {/* 🔹 Nuevo campo: Selección de alergias */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Alergias</label>
+            <div className="space-y-1 max-h-32 overflow-y-auto border rounded p-2">
+              {alergiasDisponibles.map((alergia) => (
+                <label key={alergia.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={datos.alergias_ids?.includes(alergia.id) || false}
+                    onChange={() => handleAlergiaChange(alergia.id)}
+                  />
+                  {alergia.nombre}
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-4">
