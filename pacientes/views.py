@@ -220,7 +220,7 @@ def generar_receta_pdf(request, consulta_id):
 
 
         # Usar fecha fija
-        # p.drawRightString(width - 40, y_start - 45, "Fecha: 10/09/2025")
+        # p.drawRightString(width - 40, y_start - 45, "Fecha: 5/08/2025")
         
         fecha_local = timezone.localtime(c.fecha)
         p.drawRightString(width - 40, y_start - 45, f"Fecha: {fecha_local.strftime('%d/%m/%Y')}")
