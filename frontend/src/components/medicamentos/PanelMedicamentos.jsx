@@ -1,5 +1,7 @@
+// src/components/medicamentos/PanelMedicamentos.jsx
 import React, { useState, useEffect } from "react";
 import recetasRapidas from "../../data/recetasRapidas";
+import medicamentos from "../../data/medicamentos"; // respaldo local
 
 export default function PanelMedicamentos({ onSeleccionar }) {
   const [busqueda, setBusqueda] = useState("");
@@ -8,12 +10,13 @@ export default function PanelMedicamentos({ onSeleccionar }) {
   const [pagina, setPagina] = useState(1);
   const porPagina = 10;
 
-  // 🔎 Buscar
+  // 🔎 Buscar en API y respaldo local
   const buscar = async (query) => {
     if (!query.trim()) {
       setSugerencias([]);
       return;
     }
+
     try {
       const response = await fetch(
         `/api/medicamentos-frecuentes/?search=${encodeURIComponent(query)}`
@@ -21,23 +24,38 @@ export default function PanelMedicamentos({ onSeleccionar }) {
       if (response.ok) {
         const resultados = await response.json();
         setSugerencias(resultados);
+        return;
       }
     } catch (err) {
       console.error("Error cargando medicamentos frecuentes:", err);
     }
+
+    // 🔹 Respaldo: búsqueda en lista local
+    const resultadosLocales = medicamentos.filter(
+      (med) =>
+        (med.nombre || med.label) &&
+        (med.nombre?.toLowerCase() || med.label?.toLowerCase()).includes(
+          query.toLowerCase()
+        )
+    );
+    setSugerencias(resultadosLocales);
   };
 
-  // 📥 Cargar todos al inicio
+  // 📥 Cargar todos al inicio (API con fallback local)
   const cargarTodos = async () => {
     try {
       const response = await fetch("/api/medicamentos-frecuentes/");
       if (response.ok) {
         const resultados = await response.json();
         setTodos(resultados);
+        return;
       }
     } catch (err) {
       console.error("Error cargando lista completa:", err);
     }
+
+    // fallback local
+    setTodos(medicamentos);
   };
 
   useEffect(() => {
@@ -49,10 +67,17 @@ export default function PanelMedicamentos({ onSeleccionar }) {
   }, []);
 
   // 📌 Paginación
-  const totalPaginas = Math.ceil(todos.length / porPagina);
+  const totalPaginas = Math.ceil(todos.length / porPagina) || 1;
   const inicio = (pagina - 1) * porPagina;
   const fin = inicio + porPagina;
   const listaPaginada = todos.slice(inicio, fin);
+
+  // 🛠️ Helper para normalizar objeto medicamento
+  const normalizarMed = (med) => ({
+    nombre: med.nombre || med.label || "Sin nombre",
+    posologia: med.posologia || med.descripcion || "",
+    duracion: med.duracion || "",
+  });
 
   return (
     <div className="bg-white shadow-md rounded-lg p-4 border w-full max-w-md">
@@ -70,8 +95,16 @@ export default function PanelMedicamentos({ onSeleccionar }) {
             <button
               key={idx}
               onClick={() =>
-                receta.medicamentos.forEach((med) => onSeleccionar && onSeleccionar(med))
+                receta.medicamentos.forEach((med) =>
+                  onSeleccionar &&
+                  onSeleccionar({
+                    nombre: med.nombre || med.label || "Sin nombre",
+                    posologia: med.posologia || med.descripcion || "",
+                    duracion: med.duracion || "",
+                  })
+                )
               }
+              
               className="px-3 py-1 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 text-sm"
             >
               {receta.nombre}
@@ -92,15 +125,19 @@ export default function PanelMedicamentos({ onSeleccionar }) {
       {/* 🔍 Resultados de búsqueda */}
       {busqueda && sugerencias.length > 0 ? (
         <ul className="space-y-2 max-h-64 overflow-y-auto">
-          {sugerencias.map((med) => (
+          {sugerencias.map((med, idx) => (
             <li
-              key={med.id}
-              onClick={() => onSeleccionar && onSeleccionar(med)}
+              key={med.id || idx}
+              onClick={() => onSeleccionar && onSeleccionar(normalizarMed(med))}
               className="p-3 border rounded-md bg-gray-50 hover:bg-blue-50 cursor-pointer"
             >
-              <span className="font-medium">{med.nombre}</span>
-              {med.posologia && (
-                <span className="block text-xs text-gray-500">{med.posologia}</span>
+              <span className="font-medium">
+                {med.nombre || med.label || "Sin nombre"}
+              </span>
+              {(med.posologia || med.descripcion) && (
+                <span className="block text-xs text-gray-500">
+                  {med.posologia || med.descripcion}
+                </span>
               )}
             </li>
           ))}
@@ -109,15 +146,19 @@ export default function PanelMedicamentos({ onSeleccionar }) {
         <>
           {/* 📋 Lista paginada */}
           <ul className="space-y-2 max-h-64 overflow-y-auto">
-            {listaPaginada.map((med) => (
+            {listaPaginada.map((med, idx) => (
               <li
-                key={med.id}
-                onClick={() => onSeleccionar && onSeleccionar(med)}
+                key={med.id || idx}
+                onClick={() => onSeleccionar && onSeleccionar(normalizarMed(med))}
                 className="p-3 border rounded-md bg-gray-50 hover:bg-blue-50 cursor-pointer"
               >
-                <span className="font-medium">{med.nombre}</span>
-                {med.posologia && (
-                  <span className="block text-xs text-gray-500">{med.posologia}</span>
+                <span className="font-medium">
+                  {med.nombre || med.label || "Sin nombre"}
+                </span>
+                {(med.posologia || med.descripcion) && (
+                  <span className="block text-xs text-gray-500">
+                    {med.posologia || med.descripcion}
+                  </span>
                 )}
               </li>
             ))}

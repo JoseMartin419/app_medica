@@ -1,6 +1,11 @@
+// src/components/consultas/TratamientoForm.jsx
 import React, { useState } from "react";
 import { Pill, Plus, Clock, AlertCircle } from "lucide-react";
 import PanelMedicamentos from "../medicamentos/PanelMedicamentos";
+import medicamentos from "../../data/medicamentos"; // respaldo local
+
+// 🔹 Importar las reglas de posología del archivo adjunto
+import  reglasPosologia  from "../../data/posologias"; // Ajusta la ruta si es necesario
 
 export default function TratamientoForm({
   consulta,
@@ -11,14 +16,19 @@ export default function TratamientoForm({
   setSugerencias,
   agregarMedicamento,
   removerMedicamento,
-  pacienteActual,
-  reglasPosologia,
+  pacienteActual, // 🔹 Usaremos este prop para obtener el peso
+  // 💡 Nota: reglasPosologia se pasa como prop, pero la importación directa es más limpia
+  // Si la posología viniera de una API o contexto, usarías el prop. Por ahora, importamos.
 }) {
   const [mostrarPanel, setMostrarPanel] = useState(false);
 
-  // 👇 Nuevo: estados globales para edición
+  // 🔹 Estados para edición
   const [editandoIndex, setEditandoIndex] = useState(null);
-  const [medEditado, setMedEditado] = useState({ nombre: "", posologia: "", duracion: "" });
+  const [medEditado, setMedEditado] = useState({
+    nombre: "",
+    posologia: "",
+    duracion: "",
+  });
 
   const guardarEdicion = () => {
     if (editandoIndex === null) return;
@@ -30,6 +40,33 @@ export default function TratamientoForm({
     setEditandoIndex(null);
   };
 
+  /**
+   * 🔹 Función para buscar y calcular la posología automáticamente
+   * @param {string} nombre Nombre completo del medicamento (ej: 'Paracetamol 3.2g/100ml Suspensión 120ml')
+   * @returns {{ posologia: string, duracion: string | undefined }} La posología calculada
+   */
+  const obtenerPosologiaAutomatica = (nombre) => {
+    const regla = reglasPosologia[nombre];
+    let posologiaCalculada = "";
+    let duracionSugerida = ""; // La duración ya está incluida en la cadena de posología de tu archivo
+
+    if (regla && typeof regla.texto === 'function' && pacienteActual?.peso) {
+      // 💡 Invocamos la función con el peso del paciente
+      posologiaCalculada = regla.texto(pacienteActual.peso);
+      // Extraer una duración simple si es necesaria por separado,
+      // pero por ahora la dejamos dentro de 'posologia' para evitar complejidades.
+      // Ej: "Tomar 5.0 ml cada 8 horas por 5 días" -> posologia = "5.0 ml c/8h x 5 días"
+    } else if (regla && typeof regla.texto === 'function') {
+      // Para medicamentos que no dependen del peso (Ambroxol combinados)
+      posologiaCalculada = regla.texto();
+    }
+    
+    // Si la regla existe pero no es una función (ej. si tuvieras una regla estática)
+    // Se podría añadir lógica aquí.
+    
+    return { posologia: posologiaCalculada, duracion: duracionSugerida };
+  };
+
   return (
     <div className="space-y-6 relative">
       <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -38,38 +75,87 @@ export default function TratamientoForm({
       </h3>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Nombre medicamento */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Medicamento</label>
+        {/* Nombre medicamento con autocompletado */}
+        <div className="relative">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Medicamento
+          </label>
           <input
             type="text"
             value={medicamentoActual.nombre}
             onChange={(e) => {
               const nuevoNombre = e.target.value;
-              setMedicamentoActual((prev) => {
-                const peso = parseFloat(consulta.peso) || 0;
-                const key = nuevoNombre.toLowerCase().trim();
-                const regla = reglasPosologia[key];
-                const posologiaCalculada =
-                  regla && peso > 0 ? regla.texto(peso) : prev.posologia;
 
-                return { ...prev, nombre: nuevoNombre, posologia: posologiaCalculada };
-              });
+              // 🔹 Filtrar medicamentos (local)
+              const resultados = medicamentos.filter(
+                (med) =>
+                  (med.label &&
+                    med.label.toLowerCase().includes(nuevoNombre.toLowerCase())) ||
+                  (med.nombre &&
+                    med.nombre.toLowerCase().includes(nuevoNombre.toLowerCase()))
+              );
+              setSugerencias(resultados);
+
+              // 🔹 Búsqueda y aplicación automática al escribir
+              const { posologia, duracion } = obtenerPosologiaAutomatica(nuevoNombre);
+
+              setMedicamentoActual((prev) => ({
+                ...prev,
+                nombre: nuevoNombre,
+                // Aplicar posología/duración solo si se encontró una regla
+                posologia: posologia || prev.posologia,
+                duracion: duracion || prev.duracion,
+              }));
             }}
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             placeholder="Nombre del medicamento"
             autoComplete="off"
           />
+
+          {/* 🔹 Lista de sugerencias */}
+          {sugerencias.length > 0 && (
+            <ul className="absolute z-10 bg-white border rounded-md mt-1 max-h-40 overflow-y-auto w-full shadow-md">
+              {sugerencias.map((med, idx) => (
+                <li
+                  key={idx}
+                  onClick={() => {
+                    const nombreSeleccionado = med?.nombre || med?.label || "";
+                    // 🔹 Aplicar dosificación automática al seleccionar de la lista
+                    const { posologia, duracion } = obtenerPosologiaAutomatica(
+                      nombreSeleccionado
+                    );
+
+                    setMedicamentoActual({
+                      nombre: nombreSeleccionado,
+                      posologia: posologia, // se usa la calculada, o ""
+                      duracion: duracion, // se usa la calculada, o ""
+                    });
+                    setSugerencias([]);
+                  }}
+                  className="px-3 py-2 cursor-pointer hover:bg-blue-100"
+                >
+                  <span className="font-medium">
+                    {med?.nombre || med?.label || "Sin nombre"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* Posología */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Posología</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Posología
+          </label>
           <input
             type="text"
             value={medicamentoActual.posologia}
             onChange={(e) =>
-              setMedicamentoActual((prev) => ({ ...prev, posologia: e.target.value }))
+              setMedicamentoActual((prev) => ({
+                ...prev,
+                posologia: e.target.value,
+              }))
             }
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             placeholder="Dosis y frecuencia"
@@ -77,7 +163,7 @@ export default function TratamientoForm({
         </div>
       </div>
 
-      {/* Botón para abrir el panel flotante */}
+      {/* Botón abrir panel */}
       <button
         type="button"
         onClick={() => setMostrarPanel(true)}
@@ -87,7 +173,7 @@ export default function TratamientoForm({
         Elegir de Panel
       </button>
 
-      {/* Botón agregar manualmente */}
+      {/* Botón agregar manual */}
       <button
         type="button"
         onClick={agregarMedicamento}
@@ -97,10 +183,12 @@ export default function TratamientoForm({
         Agregar Medicamento
       </button>
 
-      {/* Lista prescritos */}
+      {/* Lista de medicamentos prescritos */}
       {consulta.tratamiento?.length > 0 && (
         <div className="mt-6">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Medicamentos prescritos</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-2">
+            Medicamentos prescritos
+          </h4>
           <ul className="border border-gray-200 rounded-md divide-y divide-gray-200">
             {consulta.tratamiento.map((med, index) => (
               <li
@@ -113,7 +201,10 @@ export default function TratamientoForm({
                       type="text"
                       value={medEditado.nombre}
                       onChange={(e) =>
-                        setMedEditado((prev) => ({ ...prev, nombre: e.target.value }))
+                        setMedEditado((prev) => ({
+                          ...prev,
+                          nombre: e.target.value,
+                        }))
                       }
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       placeholder="Nombre del medicamento"
@@ -122,7 +213,10 @@ export default function TratamientoForm({
                       type="text"
                       value={medEditado.posologia}
                       onChange={(e) =>
-                        setMedEditado((prev) => ({ ...prev, posologia: e.target.value }))
+                        setMedEditado((prev) => ({
+                          ...prev,
+                          posologia: e.target.value,
+                        }))
                       }
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       placeholder="Posología"
@@ -131,7 +225,10 @@ export default function TratamientoForm({
                       type="text"
                       value={medEditado.duracion || ""}
                       onChange={(e) =>
-                        setMedEditado((prev) => ({ ...prev, duracion: e.target.value }))
+                        setMedEditado((prev) => ({
+                          ...prev,
+                          duracion: e.target.value,
+                        }))
                       }
                       className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       placeholder="Duración"
@@ -158,8 +255,11 @@ export default function TratamientoForm({
                     <div className="flex-1 flex items-center">
                       <Pill className="flex-shrink-0 h-5 w-5 text-gray-400" />
                       <span className="ml-2 truncate">
-                        <span className="font-medium">{med.nombre}</span> - {med.posologia}{" "}
-                        {med.duracion && `(${med.duracion})`}
+                        <span className="font-medium">
+                          {med.nombre || med.label || "-"}
+                        </span>
+                        {med.posologia && ` - ${med.posologia}`}
+                        {med.duracion && ` (${med.duracion})`}
                       </span>
                     </div>
                     <div className="ml-4 flex gap-3">
@@ -200,7 +300,7 @@ export default function TratamientoForm({
         </div>
       )}
 
-      {/* Modal PanelMedicamentos */}
+      {/* Modal con PanelMedicamentos */}
       {mostrarPanel && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 max-w-3xl w-full relative">
@@ -212,15 +312,27 @@ export default function TratamientoForm({
             </button>
             <PanelMedicamentos
               onSeleccionar={(med) => {
+                const nombreSeleccionado = med.nombre || med.label || "Sin nombre";
+                // 🔹 Aplicar dosificación automática al seleccionar del Panel
+                const { posologia, duracion } = obtenerPosologiaAutomatica(
+                  nombreSeleccionado
+                );
+
                 setConsulta((prev) => ({
                   ...prev,
                   tratamiento: [
                     ...prev.tratamiento,
-                    { nombre: med.nombre, posologia: med.posologia || "", duracion: "" },
+                    {
+                      nombre: nombreSeleccionado,
+                      // Prioriza la posología automática si existe
+                      posologia: posologia || med.posologia || med.descripcion || "",
+                      duracion: duracion || med.duracion || "",
+                    },
                   ],
                 }));
               }}
             />
+
             <div className="mt-4 flex justify-end">
               <button
                 onClick={() => setMostrarPanel(false)}
