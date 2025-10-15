@@ -174,3 +174,17 @@ class CIE10DiagnosisSerializer(serializers.ModelSerializer):
     class Meta:
         model = CIE10Diagnosis
         fields = ['id', 'codigo', 'descripcion']
+
+
+# -------------------------------
+# Certificados Médicos
+# -------------------------------
+from rest_framework import serializers
+from .models import CertificadoMedico
+
+class CertificadoMedicoSerializer(serializers.ModelSerializer):
+    paciente_nombre = serializers.CharField(source='paciente.nombre', read_only=True)
+
+    class Meta:
+        model = CertificadoMedico
+        fields = '__all__'

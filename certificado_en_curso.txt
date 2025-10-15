@@ -1,0 +1,928 @@
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import {
+  TextField,
+  Button,
+  Grid,
+  Paper,
+  Typography,
+  Snackbar,
+  Alert,
+  FormControl,
+  Divider,
+  Box,
+  Chip,
+  CircularProgress,
+  FormHelperText,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+} from "@mui/material";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { motion } from "framer-motion";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { useReactToPrint } from "react-to-print";
+import Autocomplete from "@mui/material/Autocomplete";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+
+
+// ----------------------------- 1. CONFIGURACIÓN DEL TEMA (MUI) -----------------------------
+const API_BASE = "http://localhost:8000/api/";
+
+const theme = createTheme({
+  palette: {
+    primary: { main: "#0D47A1" }, // Azul profesional
+    secondary: { main: "#C62828" },
+    success: { main: "#1B5E20" },
+    background: { default: "#f8fafc" },
+  },
+  typography: {
+    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    h4: { fontWeight: 700, fontSize: "1.8rem" },
+    h5: { fontWeight: 600, fontSize: "1.4rem" },
+    h6: { fontWeight: 600, fontSize: "1.0rem" },
+    body1: { fontSize: "0.95rem" },
+    body2: { fontSize: "0.85rem" },
+  },
+  components: {
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: "12px",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: "8px",
+          textTransform: "none",
+          fontWeight: 600,
+          padding: "8px 16px",
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          "& .MuiOutlinedInput-root": {
+            borderRadius: "8px",
+          },
+        },
+      },
+    },
+  },
+});
+
+
+// ----------------------------- 2. COMPONENTE PRINCIPAL -----------------------------
+export default function CertificadoMedico() {
+  const printRef = useRef(null);
+  
+  // Constantes de URL para API (usadas en fetchPatients y handleSave)
+  const CERTIFICADOS_URL = `${API_BASE}certificados/`;
+  const PACIENTES_URL = `${API_BASE}pacientes/`;
+
+  // --- ESTADOS ---
+  const [formData, setFormData] = useState(() => ({
+    doctorNombre: "Dr. José Martín González Durán",
+    doctorCedula: "12949813",
+    doctorEspecialidad: "Medicina General",
+    doctorTitulo: "Médico Cirujano y Partero",
+    clinicaNombre: "Consultorio Médico Fundación Best",
+    clinicaDireccion: "Paseo de San Juan #374, C.P: 67254, Ciudad Benito Juárez, N.L.",
+    pacienteNombre: "",
+    pacienteFechaNacimiento: "",
+    pacienteEdad: "",
+    pacienteSexo: "Masculino",
+    tensionArterial: "",
+    frecuenciaCardiaca: "",
+    frecuenciaRespiratoria: "",
+    temperatura: "",
+    saturacionOxigeno: "",
+    peso: "",
+    talla: "",
+    imc: "",
+    folio: `CM-${Math.floor(1000 + Math.random() * 9000)}`,
+    fechaExpedicion: format(new Date(), "yyyy-MM-dd"),
+    padecimientoActual: "Refiere buen estado general, sin sintomatología aguda.",
+    exploracionFisica: "Paciente consciente, orientado en tiempo, persona y espacio. Hidratado, con buena coloración de tegumentos.",
+    diagnostico: "Clínicamente sano.",
+    recomendaciones: "Mantener hábitos saludables, realizar actividad física regular.",
+  }));
+
+  const [patients, setPatients] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [loading, setLoading] = useState({ fetch: false, save: false });
+  const [alert, setAlert] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
+  const [errors, setErrors] = useState({});
+
+  // ----------------------------- 3. LÓGICA Y MANEJADORES DE DATOS -----------------------------
+
+  // --- IMPRESIÓN ---
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Certificado_${formData.folio}`,
+    onAfterPrint: () =>
+      setAlert({
+        open: true,
+        message: "Certificado descargado correctamente",
+        severity: "success",
+      }),
+    pageStyle: `
+      @page { 
+        size: letter; 
+        margin: 0.25in;
+        @top-center { content: ""; }
+        @bottom-center { content: ""; }
+      }
+      body { 
+        -webkit-print-color-adjust: exact; 
+        print-color-adjust: exact;
+        font-family: 'Inter', sans-serif;
+      }
+      .print-container { 
+        width: 100%; 
+        position: relative;
+      }
+    `,
+  });
+
+  // --- LÓGICA DE CÁLCULO ---
+  const calculateAge = (dob) => {
+    if (!dob) return "";
+    const birth = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age >= 0 ? age : "";
+  };
+
+  const calculateBMI = (peso, talla) => {
+    if (!peso || !talla) return "";
+    const altura = parseFloat(talla) / 100;
+    if (altura <= 0) return "";
+    return (parseFloat(peso) / (altura * altura)).toFixed(1);
+  };
+
+  // --- FETCH DE PACIENTES (Simulación si la API no responde) ---
+  const fetchPatients = useCallback(async () => {
+    setLoading((prev) => ({ ...prev, fetch: true }));
+    try {
+      const res = await fetch(PACIENTES_URL);
+      if (res.ok) {
+        const data = await res.json();
+        setPatients(data);
+      } else {
+        // Mock de datos si el fetch falla (común en desarrollo local)
+        await new Promise(resolve => setTimeout(resolve, 500)); 
+        setPatients([
+            { id: 1, nombre: "VIVIAN ARIEL CARREON GALVAN", fecha_nacimiento: "2010-01-01", telefono: "8112345678", sexo: "Femenino", signos: { ta: "120/80", fc: "88", fr: "16", temp: "36.0", sat: "99", peso: "99", talla: "99" } },
+            { id: 2, nombre: "ALBERTO GOMEZ PEREZ", fecha_nacimiento: "1985-05-10", telefono: "8155554444", sexo: "Masculino", signos: { ta: "130/90", fc: "72", fr: "18", temp: "36.5", sat: "98", peso: "75", talla: "175" } },
+        ]);
+      }
+    } catch (err) {
+      setAlert({
+        open: true,
+        message: "Error al cargar pacientes. Revise la URL de la API o la simulación de datos.",
+        severity: "error",
+      });
+      console.error(err);
+    } finally {
+      setLoading((prev) => ({ ...prev, fetch: false }));
+    }
+  }, [PACIENTES_URL]);
+
+  // --- EFECTOS: Carga de Pacientes, Cálculo de Edad e IMC ---
+  useEffect(() => {
+    fetchPatients();
+  }, [fetchPatients]);
+
+  useEffect(() => {
+    const dob = selectedPatient?.fecha_nacimiento || formData.pacienteFechaNacimiento;
+    const edad = calculateAge(dob);
+    setFormData((prev) => ({ ...prev, pacienteEdad: edad }));
+  }, [selectedPatient, formData.pacienteFechaNacimiento]);
+
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      imc: calculateBMI(prev.peso, prev.talla),
+    }));
+  }, [formData.peso, formData.talla]);
+
+
+  // --- MANEJADORES DE INPUTS ---
+  const handlePatientChange = (event, newValue) => {
+    setSelectedPatient(newValue);
+    if (newValue) {
+      const formattedDate = newValue.fecha_nacimiento
+        ? format(new Date(newValue.fecha_nacimiento), "yyyy-MM-dd")
+        : "";
+      
+      // Llenar campos con datos del paciente y signos vitales pre-guardados (si existen)
+      const signos = newValue.signos || {};
+
+      setFormData((prev) => ({
+        ...prev,
+        pacienteNombre: newValue.nombre,
+        pacienteFechaNacimiento: formattedDate,
+        pacienteEdad: calculateAge(formattedDate),
+        pacienteSexo: newValue.sexo || "Masculino",
+        tensionArterial: signos.ta || "",
+        frecuenciaCardiaca: signos.fc || "",
+        frecuenciaRespiratoria: signos.fr || "",
+        temperatura: signos.temp || "",
+        saturacionOxigeno: signos.sat || "",
+        peso: signos.peso || "",
+        talla: signos.talla || "",
+        // IMC se calcula automáticamente por el useEffect
+      }));
+    } else {
+        // Limpiar solo los campos relacionados con el paciente si se deselecciona
+        setFormData(prev => ({ 
+            ...prev, 
+            pacienteNombre: "", pacienteFechaNacimiento: "", pacienteEdad: "", 
+            tensionArterial: "", frecuenciaCardiaca: "", frecuenciaRespiratoria: "", 
+            temperatura: "", saturacionOxigeno: "", peso: "", talla: "", imc: ""
+        }));
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  // --- VALIDACIÓN Y ACCIONES ---
+  const validateForm = () => {
+    const newErrors = {};
+    if (!selectedPatient) newErrors.paciente = "Selecciona un paciente";
+    if (!formData.diagnostico.trim()) newErrors.diagnostico = "El diagnóstico es requerido";
+    if (!formData.folio.trim()) newErrors.folio = "El folio es requerido";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validateForm()) {
+      setAlert({
+        open: true,
+        message: "Por favor, corrige los errores en el formulario",
+        severity: "warning",
+      });
+      return;
+    }
+
+    setLoading((prev) => ({ ...prev, save: true }));
+    const payload = {
+      paciente: selectedPatient.id,
+      folio: formData.folio,
+      padecimiento_actual: formData.padecimientoActual,
+      exploracion_fisica: formData.exploracionFisica,
+      diagnostico: formData.diagnostico,
+      recomendaciones: formData.recomendaciones,
+      tension_arterial: formData.tensionArterial,
+      frecuencia_cardiaca: formData.frecuenciaCardiaca,
+      frecuencia_respiratoria: formData.frecuenciaRespiratoria,
+      temperatura: formData.temperatura,
+      saturacion_oxigeno: formData.saturacionOxigeno,
+      peso: formData.peso ? parseFloat(formData.peso) : null,
+      talla: formData.talla ? parseFloat(formData.talla) : null,
+      imc: formData.imc ? parseFloat(formData.imc) : null,
+      medico: formData.doctorNombre,
+      clinica: formData.clinicaNombre,
+      direccion_clinica: formData.clinicaDireccion,
+    };
+
+    try {
+      const res = await fetch(CERTIFICADOS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        // Simulación de éxito si la API no está disponible
+        if (API_BASE.includes("localhost")) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            setAlert({
+                open: true,
+                message: `Certificado guardado correctamente (SIMULADO) (Folio: ${formData.folio})`,
+                severity: "success",
+            });
+            return;
+        }
+
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Error al guardar certificado");
+      }
+
+      const savedData = await res.json();
+      setAlert({
+        open: true,
+        message: `Certificado guardado correctamente (ID: ${savedData.id})`,
+        severity: "success",
+      });
+    } catch (err) {
+      console.error(err);
+      setAlert({
+        open: true,
+        message: err.message || "No se pudo guardar el certificado",
+        severity: "error",
+      });
+    } finally {
+      setLoading((prev) => ({ ...prev, save: false }));
+    }
+  };
+
+  const handleReset = () => {
+    setFormData((prev) => ({
+      ...prev,
+      // Restablecer campos variables a estado inicial o vacío
+      pacienteNombre: "",
+      pacienteEdad: "",
+      pacienteSexo: "Masculino",
+      tensionArterial: "",
+      frecuenciaCardiaca: "",
+      frecuenciaRespiratoria: "",
+      temperatura: "",
+      saturacionOxigeno: "",
+      peso: "",
+      talla: "",
+      imc: "",
+      // Generar nuevo folio para un nuevo certificado
+      folio: `CM-${Math.floor(1000 + Math.random() * 9000)}`,
+      padecimientoActual: "Refiere buen estado general, sin sintomatología aguda.",
+      exploracionFisica: "Paciente consciente, orientado en tiempo, persona y espacio. Hidratado, con buena coloración de tegumentos.",
+      diagnostico: "Clínicamente sano.",
+      recomendaciones: "Mantener hábitos saludables, realizar actividad física regular.",
+    }));
+    setSelectedPatient(null);
+    setErrors({});
+    setAlert({
+      open: true,
+      message: "Formulario restablecido",
+      severity: "info",
+    });
+  };
+
+  // ----------------------------- 4. RENDERIZADO (VISTA Y PREVISUALIZACIÓN) -----------------------------
+  return (
+    <ThemeProvider theme={theme}>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-4 print:p-0">
+        
+        {/* ENCABEZADO DE LA APLICACIÓN */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mb-8 text-center print:hidden"
+        >
+          <Typography variant="h4" color="primary" gutterBottom fontWeight={800} sx={{ letterSpacing: -1 }}>
+            📄 Generador de Certificado Médico
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ fontStyle: "italic" }}>
+            Genera certificados profesionales con validación automática
+          </Typography>
+        </motion.div>
+
+        <Grid container spacing={2} className="print:hidden">
+          
+          {/* COLUMNA DE FORMULARIO (IZQUIERDA) */}
+          <Grid item xs={12} md={5}>
+            <Paper elevation={8} className="p-4 h-full" sx={{ background: "linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%)" }}>
+              
+              <Typography variant="h5" gutterBottom sx={{ color: "primary.main", fontWeight: 700 }}>
+                📝 Datos del Certificado
+              </Typography>
+              <Divider className="mb-4" sx={{ borderColor: "primary.main" }} />
+
+              {/* ACCIONES */}
+              <Box className="mb-4 flex gap-2 flex-wrap">
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="medium"
+                  onClick={handlePrint}
+                  startIcon={<span>🖨️</span>}
+                  sx={{ flex: "1 1 150px", py: 1 }}
+                >
+                  Imprimir PDF
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  size="medium"
+                  onClick={handleReset}
+                  startIcon={<span>🔄</span>}
+                  sx={{ flex: "1 1 150px", py: 1 }}
+                >
+                  Limpiar
+                </Button>
+                <Button
+                  variant="contained"
+                  color="success"
+                  size="medium"
+                  onClick={handleSave}
+                  disabled={loading.save}
+                  startIcon={loading.save ? <CircularProgress size={18} color="inherit" /> : <span>💾</span>}
+                  sx={{ flex: "1 1 150px", py: 1 }}
+                >
+                  Guardar
+                </Button>
+              </Box>
+
+              {/* SECCIÓN PACIENTE */}
+              <Accordion defaultExpanded className="mb-2"> 
+                <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: '48px', '&.Mui-expanded': { minHeight: '48px' } }}>
+                  <Typography variant="h6" sx={{ color: "primary.main" }}>
+                    👤 Datos del Paciente
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ pt: 1, pb: 1 }}>
+                  <FormControl fullWidth error={!!errors.paciente} className="mb-2">
+                    <Autocomplete
+                      options={patients}
+                      getOptionLabel={(option) => option.nombre}
+                      value={selectedPatient}
+                      onChange={handlePatientChange}
+                      loading={loading.fetch}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Selecciona un Paciente *"
+                          placeholder="Busca por nombre..."
+                          size="small"
+                          InputProps={{
+                            ...params.InputProps,
+                            endAdornment: (
+                              <>
+                                {loading.fetch ? <CircularProgress color="inherit" size={18} /> : null}
+                                {params.InputProps.endAdornment}
+                              </>
+                            ),
+                          }}
+                        />
+                      )}
+                      renderOption={(props, option) => (
+                        <li {...props} key={option.id} style={{ fontSize: '0.9rem' }}>
+                          <strong>{option.nombre}</strong> ({calculateAge(option.fecha_nacimiento)} años)
+                          {option.telefono && <Chip label={option.telefono} size="small" className="ml-2" />}
+                        </li>
+                      )}
+                    />
+                    {errors.paciente && <FormHelperText>{errors.paciente}</FormHelperText>}
+                  </FormControl>
+
+                  <TextField
+                    label="Sexo"
+                    name="pacienteSexo"
+                    value={formData.pacienteSexo}
+                    onChange={handleChange}
+                    select
+                    fullWidth
+                    size="small"
+                    className="mb-2"
+                    SelectProps={{ native: true }}
+                  >
+                    <option value="Masculino">Masculino</option>
+                    <option value="Femenino">Femenino</option>
+                    <option value="Otro">Otro</option>
+                  </TextField>
+                </AccordionDetails>
+              </Accordion>
+
+              {/* SECCIÓN SIGNOS VITALES */}
+              <Accordion defaultExpanded className="mb-2">
+                <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: '48px', '&.Mui-expanded': { minHeight: '48px' } }}>
+                  <Typography variant="h6" sx={{ color: "success.main" }}>
+                    ❤️ Signos Vitales
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ pt: 1, pb: 1 }}>
+                  <Grid container spacing={1}>
+                    <Grid item xs={6}>
+                      <TextField
+                        label="Tensión Arterial"
+                        name="tensionArterial"
+                        value={formData.tensionArterial}
+                        onChange={handleChange}
+                        fullWidth
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField
+                        label="F. Cardíaca (lpm)"
+                        name="frecuenciaCardiaca"
+                        value={formData.frecuenciaCardiaca}
+                        onChange={handleChange}
+                        fullWidth
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField
+                        label="F. Respiratoria (rpm)"
+                        name="frecuenciaRespiratoria"
+                        value={formData.frecuenciaRespiratoria}
+                        onChange={handleChange}
+                        fullWidth
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField
+                        label="Temperatura (°C)"
+                        name="temperatura"
+                        value={formData.temperatura}
+                        onChange={handleChange}
+                        fullWidth
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField
+                        label="Saturación O2 (%)"
+                        name="saturacionOxigeno"
+                        value={formData.saturacionOxigeno}
+                        onChange={handleChange}
+                        fullWidth
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField
+                        label="Peso (kg)"
+                        name="peso"
+                        type="number"
+                        value={formData.peso}
+                        onChange={handleChange}
+                        fullWidth
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField
+                        label="Talla (cm)"
+                        name="talla"
+                        type="number"
+                        value={formData.talla}
+                        onChange={handleChange}
+                        fullWidth
+                        size="small"
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField
+                        label="IMC (auto)"
+                        value={formData.imc}
+                        fullWidth
+                        size="small"
+                        disabled
+                        sx={{ backgroundColor: "action.hover" }}
+                      />
+                    </Grid>
+                  </Grid>
+                </AccordionDetails>
+              </Accordion>
+
+              {/* SECCIÓN EVALUACIÓN CLÍNICA */}
+              <Accordion defaultExpanded>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: '48px', '&.Mui-expanded': { minHeight: '48px' } }}>
+                  <Typography variant="h6" sx={{ color: "secondary.main" }}>
+                    📋 Evaluación Clínica
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ pt: 1, pb: 1 }}>
+                  <TextField
+                    label="Folio *"
+                    name="folio"
+                    value={formData.folio}
+                    onChange={handleChange}
+                    fullWidth
+                    size="small"
+                    error={!!errors.folio}
+                    helperText={errors.folio}
+                    className="mb-2"
+                  />
+                  <TextField
+                    label="Padecimiento Actual"
+                    name="padecimientoActual"
+                    value={formData.padecimientoActual}
+                    onChange={handleChange}
+                    multiline
+                    rows={1}
+                    fullWidth
+                    size="small"
+                    className="mb-2"
+                  />
+                  <TextField
+                    label="Exploración Física"
+                    name="exploracionFisica"
+                    value={formData.exploracionFisica}
+                    onChange={handleChange}
+                    multiline
+                    rows={2}
+                    fullWidth
+                    size="small"
+                    className="mb-2"
+                  />
+                  <TextField
+                    label="Diagnóstico *"
+                    name="diagnostico"
+                    value={formData.diagnostico}
+                    onChange={handleChange}
+                    multiline
+                    rows={1}
+                    fullWidth
+                    size="small"
+                    error={!!errors.diagnostico}
+                    helperText={errors.diagnostico}
+                    className="mb-2"
+                  />
+                  <TextField
+                    label="Recomendaciones"
+                    name="recomendaciones"
+                    value={formData.recomendaciones}
+                    onChange={handleChange}
+                    multiline
+                    rows={1}
+                    fullWidth
+                    size="small"
+                  />
+                </AccordionDetails>
+              </Accordion>
+            </Paper>
+          </Grid>
+
+          {/* COLUMNA DE PREVISUALIZACIÓN (DERECHA) */}
+          <Grid item xs={12} md={7}>
+            <Paper elevation={12} className="h-full" sx={{ overflow: "hidden" }}>
+              <div
+                ref={printRef}
+                className="print-container"
+                style={{
+                  background: "white",
+                  minHeight: "10.5in", // Altura optimizada para impresión
+                  padding: "0.25in",
+                  position: "relative",
+                  boxShadow: "0 0 10px rgba(0,0,0,0.1)"
+                }}
+              >
+                
+                {/* ENCABEZADO DE IMPRESIÓN */}
+                <Box className="text-center mb-4 border-b-2 border-blue-400 pb-2">
+                  <Typography
+                    variant="h4"
+                    color="primary"
+                    gutterBottom
+                    fontWeight={900}
+                    sx={{ 
+                      letterSpacing: 2, 
+                      textTransform: "uppercase",
+                      fontSize: "1.8rem",
+                      marginTop: "0.1in"
+                    }}
+                  >
+                    CERTIFICADO MÉDICO
+                  </Typography>
+                  <Divider sx={{ my: 1, width: "250px", mx: "auto", borderColor: "primary.main", borderWidth: 1 }} />
+                </Box>
+
+                {/* CONTENIDO PRINCIPAL EN COLUMNAS */}
+                <Grid container spacing={2}>
+                  
+                  {/* DETALLES CLÍNICOS */}
+                  <Grid item xs={8}>
+                    
+                    {/* DATOS DEL PACIENTE */}
+                    <Box className="mb-4">
+                      <Typography variant="body1" gutterBottom sx={{ color: "primary.main", fontWeight: 700, fontSize: "1.0rem" }}>
+                        DATOS DEL PACIENTE
+                      </Typography>
+                      <Box sx={{ p: 1.5, border: "1px solid #e0e0e0", borderRadius: 1 }}>
+                        <Grid container spacing={1}>
+                          <Grid item xs={12}>
+                            <Typography variant="body2"><strong>Nombre:</strong> {formData.pacienteNombre || "_________________________"}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2"><strong>Edad:</strong> {formData.pacienteEdad ? `${formData.pacienteEdad} años` : "______"}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2"><strong>Sexo:</strong> {formData.pacienteSexo}</Typography>
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    </Box>
+
+                    {/* EVALUACIÓN CLÍNICA */}
+                    <Box className="mb-4">
+                      <Typography variant="body1" gutterBottom sx={{ color: "secondary.main", fontWeight: 700, fontSize: "1.0rem" }}>
+                        EVALUACIÓN CLÍNICA
+                      </Typography>
+                      
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>Padecimiento Actual:</Typography>
+                        <Box sx={{ p: 1, border: "1px solid #e0e0e0", borderRadius: 1, minHeight: "30px" }}>
+                          <Typography variant="body2" sx={{ lineHeight: 1.4 }}>
+                            {formData.padecimientoActual}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>Exploración Física:</Typography>
+                        <Box sx={{ p: 1, border: "1px solid #e0e0e0", borderRadius: 1, minHeight: "70px" }}>
+                          <Typography variant="body2" sx={{ lineHeight: 1.4 }}>
+                            {formData.exploracionFisica}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>Diagnóstico:</Typography>
+                        <Box sx={{ p: 1, border: "2px solid #0D47A1", borderRadius: 1, backgroundColor: "#e3f2fd", minHeight: "40px" }}>
+                          <Typography variant="body2" sx={{ lineHeight: 1.4, fontStyle: "italic", fontWeight: 500 }}>
+                            {formData.diagnostico}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>Recomendaciones:</Typography>
+                        <Box sx={{ p: 1, border: "1px solid #e0e0e0", borderRadius: 1, minHeight: "40px" }}>
+                          <Typography variant="body2" sx={{ lineHeight: 1.4 }}>
+                            {formData.recomendaciones}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  </Grid>
+
+                  {/* SIGNOS VITALES */}
+                  <Grid item xs={4}>
+                    <Box sx={{ p: 1.5, border: "2px solid #1B5E20", borderRadius: 1, backgroundColor: "#f1f8e9" }}>
+                      <Typography variant="body1" gutterBottom sx={{ color: "success.main", fontWeight: 700, fontSize: "1.0rem", textAlign: "center" }}>
+                        SIGNOS VITALES
+                      </Typography>
+                      
+                      <Box sx={{ mt: 1 }}>
+                        {formData.tensionArterial && (
+                          <Typography variant="body2" sx={{ mb: 0.5 }}>
+                            <strong>T/A:</strong> {formData.tensionArterial} mmHg
+                          </Typography>
+                        )}
+                        {formData.frecuenciaCardiaca && (
+                          <Typography variant="body2" sx={{ mb: 0.5 }}>
+                            <strong>F.C.:</strong> {formData.frecuenciaCardiaca} lpm
+                          </Typography>
+                        )}
+                        {formData.frecuenciaRespiratoria && (
+                          <Typography variant="body2" sx={{ mb: 0.5 }}>
+                            <strong>F.R.:</strong> {formData.frecuenciaRespiratoria} rpm
+                          </Typography>
+                        )}
+                        {formData.temperatura && (
+                          <Typography variant="body2" sx={{ mb: 0.5 }}>
+                            <strong>Temp:</strong> {formData.temperatura}°C
+                          </Typography>
+                        )}
+                        {formData.saturacionOxigeno && (
+                          <Typography variant="body2" sx={{ mb: 0.5 }}>
+                            <strong>Sat O₂:</strong> {formData.saturacionOxigeno}%
+                          </Typography>
+                        )}
+                        {formData.peso && (
+                          <Typography variant="body2" sx={{ mb: 0.5 }}>
+                            <strong>Peso:</strong> {formData.peso} kg
+                          </Typography>
+                        )}
+                        {formData.talla && (
+                          <Typography variant="body2" sx={{ mb: 0.5 }}>
+                            <strong>Talla:</strong> {formData.talla} cm
+                          </Typography>
+                        )}
+                        {formData.imc && (
+                          <Typography variant="body2" sx={{ mb: 0.5 }}>
+                            <strong>IMC:</strong> {formData.imc}
+                          </Typography>
+                        )}
+                      </Box>
+
+                      <Box sx={{ mt: 2, pt: 1, borderTop: "1px solid #a5d6a7" }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          Folio: {formData.folio}
+                        </Typography>
+                        <Typography variant="body2">
+                          Fecha: {format(new Date(formData.fechaExpedicion), "dd 'de' MMMM 'de' yyyy", { locale: es })}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                </Grid>
+
+                {/* FIRMA Y SELLO */}
+                <Box sx={{ mt: 4, pt: 2, borderTop: "1px solid #bdbdbd" }}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <Box sx={{ textAlign: "center" }}>
+                        <Box sx={{ height: "60px", borderBottom: "1px solid #bdbdbd", mb: 0.5 }}></Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.85rem" }}>
+                          Firma del Médico
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5, fontSize: "0.8rem" }}>
+                          {formData.doctorNombre}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>
+                          {formData.doctorTitulo}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem", display: "block" }}>
+                          Céd. Prof. {formData.doctorCedula}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Box sx={{ textAlign: "center" }}>
+                        <Box sx={{ height: "60px", width: "60px", margin: "0 auto", border: "1px solid #bdbdbd", borderRadius: "50%", mb: 0.5, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>
+                            Sello
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.85rem" }}>
+                          {formData.clinicaNombre}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem", display: "block" }}>
+                          {formData.clinicaDireccion}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </Box>
+              </div>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* ALERTAS */}
+        <Snackbar
+          open={alert.open}
+          autoHideDuration={5000}
+          onClose={() => setAlert({ ...alert, open: false })}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+          className="print:hidden"
+        >
+          <Alert
+            onClose={() => setAlert({ ...alert, open: false })}
+            severity={alert.severity}
+            variant="filled"
+          >
+            {alert.message}
+          </Alert>
+        </Snackbar>
+
+        {/* ESTILOS PARA IMPRESIÓN */}
+        <style jsx global>{`
+          @media print {
+            body { 
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white !important;
+            }
+            .print-container { 
+              box-shadow: none !important;
+              border: none !important;
+              margin: 0 !important;
+              padding: 0.25in !important;
+              width: 100% !important;
+              min-height: 10.5in !important;
+              position: relative !important;
+            }
+            .MuiPaper-root { 
+              box-shadow: none !important;
+              border: none !important;
+            }
+            .print-container .MuiTypography-body2 {
+                font-size: 0.85rem !important;
+                line-height: 1.4 !important;
+            }
+            .print-container .MuiTypography-caption {
+                font-size: 0.75rem !important;
+            }
+            body > *:not(.print-container) { 
+              display: none !important; 
+            }
+          }
+        `}</style>
+      </div>
+    </ThemeProvider>
+  );
+}

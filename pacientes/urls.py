@@ -17,6 +17,8 @@ from .views import (
     generar_receta_pdf,
     pacientes_estadisticas_diarias,
     AlergiaViewSet,   # ✅ importado
+    CertificadoMedicoListCreateView, 
+    CertificadoMedicoDetailView,
 )
 
 # Routers para ViewSets
@@ -49,6 +51,16 @@ urlpatterns = [
     path("pacientes/estadisticas/diarias/", pacientes_estadisticas_diarias, name="pacientes-estadisticas-diarias"),
     path("consultas/estadisticas/", ConsultasEstadisticasView.as_view(), name="consultas-estadisticas"),
 
+    # Certificados Médicos
+    path('certificados/', CertificadoMedicoListCreateView.as_view(), name='certificado-list'),
+    path('certificados/<int:pk>/', CertificadoMedicoDetailView.as_view(), name='certificado-detail'),
+
+
     # Endpoints con routers (ViewSets)
     path('', include(router.urls)),
 ]
+
+
+
+
+

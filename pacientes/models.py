@@ -114,3 +114,36 @@ class CIE10Diagnosis(models.Model):
 
     def __str__(self):
         return f"{self.codigo} - {self.descripcion}"
+    
+
+from django.db import models
+from django.utils import timezone
+from .models import Paciente  # Ajusta si está en otra app
+
+class CertificadoMedico(models.Model):
+    paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, related_name='certificados')
+    fecha_emision = models.DateTimeField(default=timezone.now)
+    folio = models.CharField(max_length=20, unique=True)
+    padecimiento_actual = models.TextField(blank=True, null=True)
+    exploracion_fisica = models.TextField(blank=True, null=True)
+    diagnostico = models.TextField(blank=True, null=True)
+    recomendaciones = models.TextField(blank=True, null=True)
+    tension_arterial = models.CharField(max_length=10, blank=True, null=True)
+    frecuencia_cardiaca = models.CharField(max_length=10, blank=True, null=True)
+    frecuencia_respiratoria = models.CharField(max_length=10, blank=True, null=True)
+    temperatura = models.CharField(max_length=10, blank=True, null=True)
+    saturacion_oxigeno = models.CharField(max_length=10, blank=True, null=True)
+    peso = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    talla = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    imc = models.DecimalField(max_digits=4, decimal_places=1, blank=True, null=True)
+    medico = models.CharField(max_length=150, blank=True, null=True)
+    clinica = models.CharField(max_length=255, blank=True, null=True)
+    direccion_clinica = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.paciente.nombre} - {self.fecha_emision.date()}"
+
+    class Meta:
+        ordering = ['-fecha_emision']
+        verbose_name = "Certificado Médico"
+        verbose_name_plural = "Certificados Médicos"

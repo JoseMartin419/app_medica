@@ -16,7 +16,7 @@ export default function TratamientoForm({
   setSugerencias,
   agregarMedicamento,
   removerMedicamento,
-  pacienteActual, // 🔹 Usaremos este prop para obtener el peso
+  pacienteActual, // 🔹 Ya no es la fuente primaria del peso, pero se mantiene por si acaso
   // 💡 Nota: reglasPosologia se pasa como prop, pero la importación directa es más limpia
   // Si la posología viniera de una API o contexto, usarías el prop. Por ahora, importamos.
 }) {
@@ -50,12 +50,20 @@ export default function TratamientoForm({
     let posologiaCalculada = "";
     let duracionSugerida = ""; // La duración ya está incluida en la cadena de posología de tu archivo
 
-    if (regla && typeof regla.texto === 'function' && pacienteActual?.peso) {
-      // 💡 Invocamos la función con el peso del paciente
-      posologiaCalculada = regla.texto(pacienteActual.peso);
+    // OBTENER Y VALIDAR EL PESO desde el objeto 'consulta'
+    const pesoNumerico = parseFloat(consulta.peso); // <-- Fuente de peso actualizada
+    
+    // 2. Ejecuta la función de la regla si existe y el peso es un número válido
+    if (
+      regla && 
+      typeof regla.texto === 'function' && 
+      !isNaN(pesoNumerico) && // Asegura que no es NaN
+      pesoNumerico > 0 // Asegura que el peso es positivo
+    ) {
+      // 💡 Invocamos la función con el peso del paciente ya validado como número
+      posologiaCalculada = regla.texto(pesoNumerico);
       // Extraer una duración simple si es necesaria por separado,
       // pero por ahora la dejamos dentro de 'posologia' para evitar complejidades.
-      // Ej: "Tomar 5.0 ml cada 8 horas por 5 días" -> posologia = "5.0 ml c/8h x 5 días"
     } else if (regla && typeof regla.texto === 'function') {
       // Para medicamentos que no dependen del peso (Ambroxol combinados)
       posologiaCalculada = regla.texto();
