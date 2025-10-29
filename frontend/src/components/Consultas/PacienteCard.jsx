@@ -1,7 +1,7 @@
 // frontend/src/components/Consultas/PacienteCard.jsx
 import React from "react";
 import { motion } from "framer-motion";
-import { User, Calendar, Phone, Mail, AlertCircle, FileText } from "lucide-react";
+import { User, Calendar, Phone, Mail, AlertCircle, FileText, Weight } from "lucide-react"; // <-- Agregado Weight
 
 export default function PacienteCard({ pacienteActual, cargarHistorial, setMostrarExpediente }) {
   if (!pacienteActual) return null;
@@ -59,6 +59,16 @@ export default function PacienteCard({ pacienteActual, cargarHistorial, setMostr
               <User size={14} className="text-gray-400" />
               <span>Edad: {edadTexto}</span>
             </div>
+            
+            {/* INICIO: Campo de Peso Añadido */}
+            {pacienteActual.ultimo_peso_kg && (
+              <div className="flex items-center gap-2">
+                <Weight size={14} className="text-gray-400" />
+                <span>Peso: {pacienteActual.ultimo_peso_kg} kg</span>
+              </div>
+            )}
+            {/* FIN: Campo de Peso Añadido */}
+
             <div className="flex items-center gap-2">
               <Phone size={14} className="text-gray-400" />
               <span>{pacienteActual.telefono || "Sin teléfono"}</span>

@@ -236,11 +236,11 @@ def generar_receta_pdf(request, consulta_id):
         p.setFillColor(gris_texto)
 
         # Usar fecha editable
-        p.drawRightString(width - 40, y_start - 45, "FECHA: 14/10/2025")
+        # p.drawRightString(width - 40, y_start - 45, "FECHA: 23/10/2025")
 
         # Usar fecha original de la consulta
-        # fecha_local = timezone.localtime(c.fecha)
-        # p.drawRightString(width - 40, y_start - 45, f"Fecha: {fecha_local.strftime('%d/%m/%Y')}")
+        fecha_local = timezone.localtime(c.fecha)
+        p.drawRightString(width - 40, y_start - 45, f"Fecha: {fecha_local.strftime('%d/%m/%Y')}")
 
         # Datos del paciente
         p.setFillColor(gris_texto)
