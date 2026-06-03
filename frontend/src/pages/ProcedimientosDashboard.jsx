@@ -12,7 +12,6 @@ import {
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Autocomplete, TextField, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton } from '@mui/material';
-import Navbar from '../components/Navbar';
 
 // --- PALETA DE COLORES TEMÁTICA ---
 const THEME_COLORS = {
@@ -98,6 +97,8 @@ const ProcedimientosDashboard = () => {
     { nombre: 'Sutura', precio: 500, color: THEME_COLORS.pie[4] },
     { nombre: 'Retiro de implante', precio: 500, color: THEME_COLORS.pie[5] },
     { nombre: 'Certificado médico de buena salud', precio: 120, color: THEME_COLORS.pie[6] },
+    { nombre: 'Consulta a Domicilio', precio: 850, color: '#3366cc' },
+    { nombre: 'Consultas pagadas en $100', precio: 100, color: '#dc3912' },
     { nombre: 'Lavado de oído', precio: 150, color: '#3366cc' },
     { nombre: 'Curaciones', precio: 200, color: '#dc3912' },
     { nombre: 'Control de niño sano', precio: 120, color: '#ff9900' },
@@ -484,7 +485,6 @@ const ProcedimientosDashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 p-4 md:p-6 lg:p-8 font-sans">
-      <Navbar />
       <motion.div 
         initial={{ opacity: 0, y: -20 }} 
         animate={{ opacity: 1, y: 0 }} 

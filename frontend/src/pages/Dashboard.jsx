@@ -1,13 +1,18 @@
+// =====================================================
+// 📁 src/pages/Dashboard.jsx — Panel Médico Completo
+// =====================================================
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { FiCalendar } from "react-icons/fi";
-import Navbar from "../components/Navbar";
 import PacientesTop from "../components/Dashboard/PacientesTop";
 import PacientesHoy from "../components/Dashboard/PacientesHoy";
 import PacientesPorDia from "../components/Dashboard/PacientesPorDia";
-import EstadisticasConsultas from "../components/Dashboard/EstadisticasConsultas"; // ✅ importación de la gráfica
+import EstadisticasConsultas from "../components/Dashboard/EstadisticasConsultas";
+import TiemposConsultasHoy from "../components/Dashboard/TiemposConsultasHoy"; // ✅ Nuevo componente
 
+// -----------------------------------------------------
 // Tarjeta: Consultas de hoy
+// -----------------------------------------------------
 const MetricCardToday = ({ count }) => (
   <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-lg border border-gray-200">
     <div className="p-3 rounded-full bg-blue-100 mb-4">
@@ -18,12 +23,17 @@ const MetricCardToday = ({ count }) => (
   </div>
 );
 
+// -----------------------------------------------------
+// Componente Principal: Dashboard
+// -----------------------------------------------------
 const Dashboard = () => {
   const [consultasHoy, setConsultasHoy] = useState(0);
   const [loading, setLoading] = useState(true);
   const [pacientesTop, setPacientesTop] = useState([]);
 
-  // Cargar consultas de hoy
+  // =====================================================
+  // 🔹 1. Cargar número de consultas de hoy
+  // =====================================================
   useEffect(() => {
     const fetchTodayConsults = async () => {
       try {
@@ -47,7 +57,9 @@ const Dashboard = () => {
     fetchTodayConsults();
   }, []);
 
-  // Cargar pacientes con más consultas
+  // =====================================================
+  // 🔹 2. Cargar pacientes con más consultas
+  // =====================================================
   useEffect(() => {
     const fetchPacientesTop = async () => {
       try {
@@ -64,10 +76,14 @@ const Dashboard = () => {
     fetchPacientesTop();
   }, []);
 
+  // =====================================================
+  // 🔹 3. Renderizado principal
+  // =====================================================
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      <Navbar />
+
       <main className="pt-20 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        {/* Encabezado */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -77,16 +93,19 @@ const Dashboard = () => {
           <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-2">
             Panel de control
           </h1>
- 
+          <p className="text-gray-500">
+            Bienvenido, revisa tu rendimiento y tus pacientes del día.
+          </p>
         </motion.div>
 
+        {/* Indicador de carga */}
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-500"></div>
           </div>
         ) : (
           <>
-            {/* Tarjetas principales */}
+            {/* Sección de tarjetas principales */}
             <motion.section
               className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10"
               initial={{ opacity: 0 }}
@@ -94,18 +113,19 @@ const Dashboard = () => {
               transition={{ delay: 0.2 }}
             >
               <MetricCardToday count={consultasHoy} />
-              <PacientesHoy /> {/* ✅ Nuevo componente con selector de fecha */}
+              <PacientesHoy />
               <PacientesTop pacientes={pacientesTop} />
               <PacientesPorDia />
+              <TiemposConsultasHoy /> {/* ✅ Nuevo componente agregado */}
             </motion.section>
 
-            {/* Gráfica de estadísticas */}
+            {/* Sección de estadísticas (gráficas) */}
             <motion.section
               className="mt-10"
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <EstadisticasConsultas /> {/* ✅ Aquí se muestra la gráfica */}
+              <EstadisticasConsultas />
             </motion.section>
           </>
         )}

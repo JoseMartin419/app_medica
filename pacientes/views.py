@@ -17,7 +17,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.utils.timezone import localtime
 from django.utils import timezone
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.db import models
 from datetime import date, timedelta
 from rest_framework import viewsets
 from rest_framework import generics
@@ -55,7 +56,7 @@ def obtener_consultas(request):
 
 @api_view(['GET'])
 def obtener_historial_por_paciente(request, pk):
-    consultas = Consulta.objects.filter(paciente_id=pk).order_by('-fecha')
+    consultas = Consulta.objects.select_related('paciente').filter(paciente_id=pk).order_by('-fecha')
     serializer = ConsultaSerializer(consultas, many=True)
     return Response(serializer.data)
 
@@ -116,8 +117,35 @@ class PacienteListCreateView(ListCreateAPIView):
 from rest_framework import generics
 
 class ConsultaListCreateView(generics.ListCreateAPIView):
-    queryset = Consulta.objects.all()
     serializer_class = ConsultaSerializer
+
+    def get_queryset(self):
+        qs = Consulta.objects.select_related('paciente').order_by('-fecha')
+        q = self.request.query_params.get('q', '').strip()
+        if q:
+            qs = qs.filter(
+                Q(motivo__icontains=q) |
+                Q(diagnostico__icontains=q) |
+                Q(paciente__nombre__icontains=q) |
+                Q(paciente__apellido_paterno__icontains=q)
+            )
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 25))
+        offset = (page - 1) * page_size
+        total = queryset.count()
+        items = queryset[offset: offset + page_size]
+        serializer = self.get_serializer(items, many=True)
+        return Response({
+            'results': serializer.data,
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'has_more': offset + page_size < total,
+        })
 
  
     def create(self, request, *args, **kwargs):
@@ -142,7 +170,7 @@ class ConsultaRetrieveView(APIView):
 
 class HistorialPorPaciente(APIView):
     def get(self, request, paciente_id):
-        consultas = Consulta.objects.filter(paciente__id=paciente_id).order_by('-fecha')
+        consultas = Consulta.objects.select_related('paciente').filter(paciente__id=paciente_id).order_by('-fecha')
         serializer = ConsultaSerializer(consultas, many=True)
         return Response(serializer.data)
 
@@ -163,84 +191,93 @@ def generar_receta_pdf(request, consulta_id):
     consulta = Consulta.objects.get(id=consulta_id)
     paciente = consulta.paciente
     edad = calcular_edad(paciente.fecha_nacimiento)
-    
 
     # Colores
     azul_oscuro = HexColor("#1E3A8A")
     gris_claro = HexColor("#E5E7EB")
     gris_texto = HexColor("#374151")
-    gris_linea = HexColor("#9CA3AF")
 
     # Crear PDF
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'inline; filename="receta_profesional.pdf"'
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = 'inline; filename="receta_profesional.pdf"'
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
 
     def dibujar_receta(y_start, c):
-        # Fondo
+        # Fondo principal
         p.setFillColor(gris_claro)
         p.roundRect(40, y_start - 320, width - 80, 250, 12, stroke=0, fill=1)
-        # Imagen de fondo (marca de agua) centrada en el cuadro
+
+        # Marca de agua
         try:
-            fondo_path = os.path.join(os.path.dirname(__file__), 'static', 'fondo.png')
+            fondo_path = os.path.join(os.path.dirname(__file__), "static", "fondo.png")
             fondo = ImageReader(fondo_path)
             p.saveState()
-            p.setFillAlpha(0.2)  # Opacidad baja
-
+            p.setFillAlpha(0.2)
             ancho_fondo = 300
             alto_fondo = 300
-            x_fondo = 40 + (width - 80 - ancho_fondo) / 2
+            x_fondo = 40 + (width - 80 - ancho_fondo) * 0.62  # desplazada a la derecha
             y_fondo = (y_start - 320) + (250 - alto_fondo) / 2
-
-            p.drawImage(fondo, x_fondo, y_fondo, width=ancho_fondo, height=alto_fondo, preserveAspectRatio=True, mask='auto')
+            p.drawImage(
+                fondo,
+                x_fondo,
+                y_fondo,
+                width=ancho_fondo,
+                height=alto_fondo,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
             p.restoreState()
         except:
             pass
 
-        # Ruta del logo (relativa al archivo views)
-        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'logo.png')
+        # 🔹 Forzar opacidad normal para el texto posterior
         try:
+            p.setFillAlpha(1)
+        except:
+            pass
+
+        # Logo
+        try:
+            logo_path = os.path.join(os.path.dirname(__file__), "static", "logo.png")
             logo = ImageReader(logo_path)
-            p.drawImage(logo, x=40, y=y_start - 60, width=80, height=80, preserveAspectRatio=True, mask='auto')
+            p.drawImage(
+                logo, x=40, y=y_start - 60, width=80, height=80, preserveAspectRatio=True, mask="auto"
+            )
         except Exception as e:
             print("No se pudo cargar el logo:", e)
 
         # Encabezado
         p.setFillColor(azul_oscuro)
         p.setFont("Helvetica-Bold", 16)
-        p.drawCentredString(width / 2, y_start, "Consultorio Medico Fundación Best")
+        # p.drawCentredString(width / 2, y_start, "Consultorio Médico La Silla")
+        p.drawCentredString(width / 2, y_start, "Fundación Best")
+        
 
         p.setFont("Helvetica-Bold", 11)
         p.drawCentredString(width / 2, y_start - 20, "Dr. José Martín González Durán")
         p.setFont("Helvetica", 9)
-        p.drawCentredString(width / 2, y_start - 34, "Cédula Profesional: 12949813    •    U.A.N.L.")
-        # Dirección del consultorio
-        direccion = "Paseo de San Juan #374, C.P: 67254, Ciudad Benito Juárez, N.L."
+        p.drawCentredString(width / 2, y_start - 34, "Cédula Profesional: 12949813 • U.A.N.L.")
         p.setFont("Helvetica", 9)
-        p.drawCentredString(width / 2, y_start - 48, direccion)
+        # p.drawCentredString(width / 2, y_start - 48, "Pedregal de la Marea #6700, C.P. 64898, Cd. Monterrey, N.L.")
+        p.drawCentredString(width / 2, y_start - 48, "Av. Lazaro Cárdenas #4332, Col. Las Torres, C.P. 64930, Cd. Monterrey, N.L.")
 
-        
-        # Código QR en la parte superior derecha
+        # QR
         try:
-            qr_path = os.path.join(os.path.dirname(__file__), 'static', 'qr.png')
+            qr_path = os.path.join(os.path.dirname(__file__), "static", "qr.png")
             qr = ImageReader(qr_path)
-            p.drawImage(qr, width - 90, y_start - 35, width=50, height=50, preserveAspectRatio=True, mask='auto')
-            p.setFont("Helvetica", 6)
-            p.setFillColor(gris_texto)
+            p.drawImage(qr, width - 90, y_start - 35, width=50, height=50, preserveAspectRatio=True, mask="auto")
         except Exception as e:
             print("Error al cargar QR:", e)
 
-        # Fecha un poco más abajo
+        # Fecha
         p.setFont("Helvetica", 9)
         p.setFillColor(gris_texto)
-
-        # Usar fecha editable
-        # p.drawRightString(width - 40, y_start - 45, "FECHA: 23/10/2025")
-
-        # Usar fecha original de la consulta
         fecha_local = timezone.localtime(c.fecha)
         p.drawRightString(width - 40, y_start - 45, f"Fecha: {fecha_local.strftime('%d/%m/%Y')}")
+
+        # fecha manual
+        # p.drawRightString(width - 40, y_start - 45, "Fecha: 14/04/2026")
 
         # Datos del paciente
         p.setFillColor(gris_texto)
@@ -257,55 +294,63 @@ def generar_receta_pdf(request, consulta_id):
         p.setFont("Helvetica-Bold", 10)
         p.drawString(450, y_start - 68, "Nacimiento:")
         p.setFont("Helvetica", 10)
-        p.drawString(525, y_start - 68, paciente.fecha_nacimiento.strftime('%d/%m/%Y'))
+        p.drawString(525, y_start - 68, paciente.fecha_nacimiento.strftime("%d/%m/%Y"))
 
         p.setFont("Helvetica-Bold", 10)
         p.drawString(55, y_start - 82, "Antecedentes:")
         p.setFont("Helvetica", 10)
-        p.drawString(140, y_start - 82, c.antecedentes)
+        p.drawString(140, y_start - 82, c.antecedentes or "")
 
-        # Tratamiento
+        # 🔹 Tratamiento
         p.setFont("Helvetica-Bold", 11)
         p.setFillColor(azul_oscuro)
         p.drawString(55, y_start - 105, "Tratamiento:")
 
         y = y_start - 120
         for i, item in enumerate(c.tratamiento):
+            nombre = item.get("nombre", "").strip()
+            posologia = item.get("posologia", "").strip()
+            duracion = item.get("duracion", "").strip()
+
+            if not nombre and not posologia:
+                continue
+
             p.setFont("Helvetica-Bold", 10)
             p.setFillColor(gris_texto)
-            p.drawString(65, y, f"{i+1}. {item['nombre']}")
-            p.setFont("Helvetica-Oblique", 9)
-            p.setFillColor(HexColor("#6B7280"))
-            p.drawString(80, y - 12, item['posologia'])
-            y -= 28
+            p.drawString(65, y, f"{i+1}. {nombre}")
 
-        # Signos vitales (solo los que están llenos)
-        signos_y = y_start - 110  # Posición inicial fija arriba a la derecha
+            # Texto de posología visible e imprimible (sin gris claro)
+            if posologia:
+                p.setFont("Helvetica", 10)
+                p.setFillColor(gris_texto)
+                p.drawString(80, y - 12, posologia)
+
+            if duracion:
+                p.setFont("Helvetica", 9)
+                p.setFillColor(gris_texto)
+                p.drawString(80, y - 24, f"Duración: {duracion}")
+
+            y -= 32
+            if y < y_start - 290:
+                break
+
+        # Signos vitales
+        signos_y = y_start - 110
         p.setFont("Helvetica-Bold", 11)
         p.setFillColor(azul_oscuro)
         p.drawString(430, signos_y, "Signos vitales:")
 
         p.setFont("Helvetica", 9)
         p.setFillColor(gris_texto)
-
         signos = []
-        if c.presion_arterial:
-            signos.append(f"T/A: {c.presion_arterial}")
-        if c.frecuencia_cardiaca:
-            signos.append(f"FC: {c.frecuencia_cardiaca}")
-        if c.frecuencia_respiratoria:
-            signos.append(f"FR: {c.frecuencia_respiratoria}")
-        if c.glucometria:
-            signos.append(f"Gluco: {c.glucometria}")
-        if c.oximetria:
-            signos.append(f"Sat O2: {c.oximetria}")
-        if c.peso:
-            signos.append(f"Peso: {c.peso} kg")
-        if c.talla:
-            signos.append(f"Talla: {c.talla} m")
-        if c.imc:
-            signos.append(f"IMC: {c.imc}")
-        # 🔹 Alergias del paciente
+        if c.presion_arterial: signos.append(f"T/A: {c.presion_arterial}")
+        if c.frecuencia_cardiaca: signos.append(f"FC: {c.frecuencia_cardiaca}")
+        if c.frecuencia_respiratoria: signos.append(f"FR: {c.frecuencia_respiratoria}")
+        if c.glucometria: signos.append(f"Gluco: {c.glucometria}")
+        if c.oximetria: signos.append(f"Sat O2: {c.oximetria}")
+        if c.peso: signos.append(f"Peso: {c.peso} kg")
+        if c.talla: signos.append(f"Talla: {c.talla} m")
+        if c.imc: signos.append(f"IMC: {c.imc}")
         if c.paciente.alergias.exists():
             alergias_list = ", ".join(c.paciente.alergias.values_list("nombre", flat=True))
             signos.append(f"Alergias: {alergias_list}")
@@ -316,39 +361,23 @@ def generar_receta_pdf(request, consulta_id):
             y_actual -= 15
 
         # Firma
-        firma_y = y_start - 290  # o el valor que desees para la altura
-
-        # Dibuja la línea de firma
+        firma_y = y_start - 290
         p.line(width - 200, firma_y, width - 60, firma_y)
-
-        # Agrega imagen de firma encima de la línea
         try:
-            firma_path = os.path.join(os.path.dirname(__file__), 'static', 'firma.png')
+            firma_path = os.path.join(os.path.dirname(__file__), "static", "firma.png")
             firma = ImageReader(firma_path)
-            p.drawImage(firma, x=width - 180, y=firma_y + 8, width=100, preserveAspectRatio=True, mask='auto')
+            p.drawImage(firma, x=width - 180, y=firma_y + 8, width=100, preserveAspectRatio=True, mask="auto")
         except Exception as e:
             print("No se pudo cargar la firma:", e)
 
-        # Texto bajo la línea
         p.drawRightString(width - 90, firma_y - 12, "Firma del médico")
 
-
-
-
-    # Parte superior
+    # Dibuja ambas recetas
     dibujar_receta(763, consulta)
-
-        
-    # Línea punteada divisoria
     p.setDash(1, 3)
     p.line(40, height / 2, width - 40, height / 2)
     p.setDash()
-
-    # Parte inferior (duplicada)
     dibujar_receta(360, consulta)
-
-
-
 
     p.showPage()
     p.save()
@@ -457,10 +486,6 @@ class ConsultasEstadisticasView(APIView):
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-
-
-
-
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db.models import Count
@@ -485,7 +510,6 @@ def pacientes_top_consultas(request):
     ]
     return Response(data)
 
-
 from datetime import date, timedelta
 from django.db.models import Count
 from django.db.models.functions import TruncDay
@@ -508,3 +532,65 @@ def pacientes_estadisticas_diarias(request):
 
     data = [{"fecha": c["dia"].strftime("%Y-%m-%d"), "count": c["count"]} for c in consultas]
     return Response(data)
+
+# views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.db.models import Count
+from django.utils import timezone
+from .models import Consulta
+
+class ConsultasEstadisticasView(APIView):
+    """
+    Devuelve número de consultas por día (últimos 7 días)
+    """
+    def get(self, request):
+        try:
+            hoy = timezone.localdate()
+            hace_7_dias = hoy - timezone.timedelta(days=6)
+
+            consultas_por_dia = (
+                Consulta.objects.filter(fecha__range=[hace_7_dias, hoy])
+                .values("fecha")
+                .annotate(count=Count("id"))
+                .order_by("fecha")
+            )
+
+            data = [{"fecha": c["fecha"], "count": c["count"]} for c in consultas_por_dia]
+
+            return Response(data)
+        except Exception as e:
+            print("❌ Error en ConsultasEstadisticasView:", e)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+from django.utils import timezone
+from django.db.models.functions import TruncDate
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from .models import Consulta
+
+class ConsultasHoyView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        hoy = timezone.localdate()
+        consultas = (
+            Consulta.objects.annotate(fecha_dia=TruncDate("fecha"))
+            .filter(fecha_dia=hoy)
+            .order_by("fecha")
+        )
+
+        data = [
+            {
+                "paciente": str(c.paciente),
+                "hora": c.fecha.isoformat() if c.fecha else None,
+            }
+            for c in consultas
+        ]
+
+        return Response(data)

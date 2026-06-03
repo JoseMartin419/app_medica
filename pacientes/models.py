@@ -54,6 +54,8 @@ class Consulta(models.Model):
     tratamiento = models.JSONField(blank=True, null=True)
     medico = models.CharField(max_length=100, blank=True, null=True)
     notas = models.TextField(blank=True, null=True)   # ✅ nuevo campo
+    hora_creacion = models.DateTimeField(auto_now_add=True)
+
 
     fecha = models.DateTimeField(auto_now_add=True)
     

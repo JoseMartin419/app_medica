@@ -91,6 +91,7 @@ class PacienteConConsultaSerializer(serializers.Serializer):
 class ConsultaSerializer(serializers.ModelSerializer):
     fecha = serializers.SerializerMethodField()
     edad_paciente = serializers.SerializerMethodField()
+    paciente_nombre = serializers.SerializerMethodField()
 
     class Meta:
         model = Consulta
@@ -108,6 +109,13 @@ class ConsultaSerializer(serializers.ModelSerializer):
             'antecedentes': {'required': False, 'allow_null': True},
             'notas': {'required': False, 'allow_null': True},   # ✅ campo nuevo
         }
+
+    def get_paciente_nombre(self, obj):
+        if obj.paciente:
+            nombre = obj.paciente.nombre or ''
+            apellido = getattr(obj.paciente, 'apellido_paterno', '') or ''
+            return f"{nombre} {apellido}".strip()
+        return 'Paciente Desconocido'
 
     def get_edad_paciente(self, obj):
         if obj.paciente and obj.paciente.fecha_nacimiento:

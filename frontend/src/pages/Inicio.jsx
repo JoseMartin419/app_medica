@@ -10,7 +10,6 @@ import WidgetBienestar from '../components/WidgetBienestar';
 
 
 export default function Inicio() {
-  const [open, setOpen] = useState(false);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [nuevoPaciente, setNuevoPaciente] = useState({ nombre: '', fecha_nacimiento: '', telefono: '', correo: '', tutor: '' });
   const [busqueda, setBusqueda] = useState('');
@@ -36,7 +35,7 @@ export default function Inicio() {
       try {
         const [dataPacientes, dataConsultas] = await Promise.all([
           obtenerPacientes(),
-          fetch("http://localhost:8000/api/consultas/").then(res => res.json())
+          fetch("http://localhost:8000/api/consultas/?page_size=1000").then(res => res.json()).then(d => Array.isArray(d) ? d : (d.results ?? []))
         ]);
         
         setPacientes(dataPacientes);
@@ -118,104 +117,6 @@ export default function Inicio() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50 font-sans">
-      {/* Barra de navegación mejorada */}
-      <nav className="bg-white/90 backdrop-blur-md shadow-sm fixed w-full z-10 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 flex items-center">
-                <Activity className="text-indigo-600" size={28} />
-                <span className="ml-2 text-xl font-bold text-gray-900 hidden sm:block bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">TodoDoctor</span>
-              </div>
-            </div>
-            
-            <div className="hidden md:block">
-              <div className="ml-10 flex items-baseline space-x-4">
-                <Link to="/" className="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-indigo-50/50 flex items-center gap-2 transition-all duration-200">
-                  <Home size={18} className="opacity-70" /> Inicio
-                </Link>
-                <Link to="/consultas" className="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-indigo-50/50 flex items-center gap-2 transition-all duration-200">
-                  <Stethoscope size={18} className="opacity-70" /> Consultas
-                </Link>
-                <Link to="/historial" className="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-indigo-50/50 flex items-center gap-2 transition-all duration-200">
-                  <Clipboard size={18} className="opacity-70" /> Historial
-                </Link>
-                <Link to="/medicamentos" className="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-indigo-50/50 flex items-center gap-2 transition-all duration-200">
-                  <Pill size={18} className="opacity-70" /> Medicamentos
-                </Link>
-                <Link to="/dashboard" className="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-indigo-50/50 flex items-center gap-2 transition-all duration-200">
-                  <BarChart3 size={18} className="opacity-70" /> Estadísticas
-                </Link>
-                <Link to="/procedimientos" className="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-green-600 hover:bg-green-50/50 flex items-center gap-2 transition-all duration-200">
-                  <FolderOpenDot size={18} className="opacity-70" /> Procedimientos
-                </Link>
-              </div>
-            </div>
-            
-            <div className="-mr-2 flex md:hidden">
-              <button
-                onClick={() => setOpen(!open)}
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 focus:outline-none transition-all"
-              >
-                {open ? <X size={24} /> : <Menu size={24} />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Menú móvil con mejoras visuales */}
-        <AnimatePresence>
-          {open && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="md:hidden overflow-hidden bg-white/95 backdrop-blur-sm"
-            >
-              <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                <Link 
-                  to="/" 
-                  className="block px-3 py-3 rounded-lg text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-indigo-50/50 flex items-center gap-3 transition-all"
-                  onClick={() => setOpen(false)}
-                >
-                  <Home size={18} className="opacity-70" /> Inicio
-                </Link>
-                <Link 
-                  to="/consultas" 
-                  className="block px-3 py-3 rounded-lg text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-indigo-50/50 flex items-center gap-3 transition-all"
-                  onClick={() => setOpen(false)}
-                >
-                  <Stethoscope size={18} className="opacity-70" /> Consultas
-                </Link>
-                <Link 
-                  to="/historial" 
-                  className="block px-3 py-3 rounded-lg text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-indigo-50/50 flex items-center gap-3 transition-all"
-                  onClick={() => setOpen(false)}
-                >
-                  <Clipboard size={18} className="opacity-70" /> Historial
-                </Link>
-                <Link 
-                  to="/medicamentos" 
-                  className="block px-3 py-3 rounded-lg text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-indigo-50/50 flex items-center gap-3 transition-all"
-                  onClick={() => setOpen(false)}
-                >
-                  <Pill size={18} className="opacity-70" /> Medicamentos
-                </Link>
-                <Link 
-                  to="/dashboard" 
-                  className="block px-3 py-3 rounded-lg text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-indigo-50/50 flex items-center gap-3 transition-all"
-                  onClick={() => setOpen(false)}
-                >
-                  <BarChart3 size={18} className="opacity-70" /> Estadísticas
-                </Link>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        
-      </nav>
-          
       {/* Contenido principal mejorado */}
       <main className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         {/* Alerta mejorada */}

@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { obtenerPacientes, crearConsulta, obtenerHistorialPorPaciente } from "../api/pacientes";
 import { Decimal } from "decimal.js";
 import { ChevronLeft, Stethoscope } from "lucide-react";
-import Navbar from "../components/Navbar";
 
 // 📌 Data
 import medicamentos from "../data/medicamentos";
@@ -327,7 +326,6 @@ export default function Consultas() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 font-sans">
-      <Navbar />
 
       <section className="pt-5 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         {/* Header */}

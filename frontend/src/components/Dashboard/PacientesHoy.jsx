@@ -8,8 +8,9 @@ const PacientesHoy = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const dataConsultas = await fetch("http://localhost:8000/api/consultas/")
+        const data = await fetch("http://localhost:8000/api/consultas/?page_size=1000")
           .then(res => res.json());
+        const dataConsultas = Array.isArray(data) ? data : (data.results ?? []);
 
         const hoy = new Date().toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' });
 

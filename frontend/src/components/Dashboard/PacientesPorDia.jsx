@@ -13,8 +13,9 @@ const PacientesPorDia = () => {
   const fetchPacientesPorDia = async (fechaSeleccionada) => {
     try {
       setLoading(true);
-      const dataConsultas = await fetch("http://localhost:8000/api/consultas/")
+      const data = await fetch("http://localhost:8000/api/consultas/?page_size=1000")
         .then((res) => res.json());
+      const dataConsultas = Array.isArray(data) ? data : (data.results ?? []);
 
       const consultasDelDia = dataConsultas.filter((c) => {
         const fechaConsulta = new Date(
